@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class SiteSetting extends Model
+{
+    protected $fillable = ['key', 'value'];
+
+    public static function defaults(): array
+    {
+        return [
+            'brand_name' => 'BSABShop',
+            'logo_path' => null,
+            'login_background_path' => null,
+            'hero_media_path' => null,
+            'hero_media_type' => null,
+            'hero_title' => 'Best picks.',
+            'hero_highlight' => 'Best prices.',
+            'hero_description' => 'Discover products from every category, curated by our marketplace sellers.',
+            'cta_label' => 'Shop now',
+            'feature_one' => 'Fresh & Quality Products',
+            'feature_two' => 'Trusted Sellers',
+            'feature_three' => 'Fast & Safe Delivery',
+            'products_title' => 'Featured Products',
+            'products_subtitle' => 'Handpicked for you. Quality products at the best prices.',
+            'footer_text' => '© 2026 BSABShop Marketplace - every price, checked twice.',
+            'footer_tagline' => 'A greener marketplace for a better tomorrow.',
+            'footer_quick_links_title' => 'Quick Links',
+            'footer_care_title' => 'Customer Care',
+            'footer_about_title' => 'About our marketplace',
+            'footer_newsletter_title' => 'Stay in the loop',
+            'footer_newsletter_text' => 'Get the latest deals and updates.',
+            'newsletter_placeholder' => 'Enter your email address',
+        ];
+    }
+
+    public static function homeSettings(): array
+    {
+        $settings = self::query()->pluck('value', 'key')->all();
+
+        return array_merge(self::defaults(), array_intersect_key($settings, self::defaults()));
+    }
+}

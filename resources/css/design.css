@@ -1,0 +1,557 @@
+/* ─── Google Fonts ───────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ─── Design tokens ─────────────────────────────────────── */
+:root {
+    --bg: #FFFFFF;
+    --surface: #F4F4F7;
+    --ink: #18181B;
+    --ink-soft: #9A9AA5;
+    --line: #EFEFF3;
+    --accent: #4CAF7D;
+    --accent-soft: #E4F5EA;
+    --accent-deep: #3B8F65;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+}
+
+/* ─── Reset ─────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+input {
+    font-family: inherit;
+}
+
+::selection {
+    background: var(--accent-soft);
+}
+
+/* ─── Wrapper ───────────────────────────────────────────── */
+.wrap {
+    max-width: 100%;
+    padding-left: 5%;
+    padding-right: 5%;
+}
+
+/* ─── Top bar ───────────────────────────────────────────── */
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 0 12px;
+}
+
+/* Icon button base */
+.icon-btn {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .15s;
+}
+
+.icon-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.icon-btn.plain {
+    background: var(--surface);
+    color: var(--ink);
+}
+
+.icon-btn.accent {
+    background: var(--accent);
+    color: #fff;
+    position: relative;
+}
+
+.icon-btn.ghost {
+    background: var(--surface);
+    color: var(--ink);
+    width: 38px;
+    height: 38px;
+}
+
+.icon-btn:hover {
+    opacity: .82;
+}
+
+/* Cart badge */
+.cart-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #fff;
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+}
+
+/* Search pill */
+.search-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 11px 18px;
+}
+
+.search-pill svg {
+    color: var(--ink-soft);
+    flex-shrink: 0;
+}
+
+.search-pill input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-size: 14.5px;
+    color: var(--ink);
+}
+
+.search-pill input::placeholder {
+    color: var(--ink-soft);
+}
+
+/* ─── Title row ─────────────────────────────────────────── */
+.title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 4px;
+}
+
+.title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.title-group h1 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--ink);
+}
+
+.count-badge {
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 4px 11px;
+    border-radius: 999px;
+}
+
+/* ─── Sort Popover ──────────────────────────────────────── */
+.popover-anchor {
+    position: relative;
+}
+
+.popover {
+    position: absolute;
+    top: 46px;
+    right: 0;
+    z-index: 40;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 32px rgba(20, 20, 30, .13);
+    width: 248px;
+    padding: 16px;
+    display: none;
+}
+
+.popover.open {
+    display: block;
+}
+
+.popover h3 {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+    font-weight: 700;
+}
+
+.sort-opt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 9px 4px;
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sort-opt.active {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.sort-opt:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.divider {
+    height: 1px;
+    background: var(--line);
+    margin: 8px 0 10px;
+}
+
+.avail-note {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    padding: 2px 4px;
+    margin: 0;
+}
+
+/* ─── Category chips ────────────────────────────────────── */
+.chip-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 14px 0 6px;
+}
+
+.chip-row::-webkit-scrollbar {
+    display: none;
+}
+
+.chip {
+    flex-shrink: 0;
+    padding: 9px 17px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+
+.chip.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ─── Notice/toast ──────────────────────────────────────── */
+.notice {
+    display: inline-block;
+    margin: 10px 0 0;
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 999px;
+}
+
+/* ─── Product grid ──────────────────────────────────────── */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding: 18px 0 60px;
+}
+
+@media (min-width: 620px) {
+    .grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 900px) {
+    .grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: 50px 20px;
+}
+
+/* ─── Product card ──────────────────────────────────────── */
+.card {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 10px rgba(20, 20, 30, .06);
+    overflow: visible;
+    transition: transform .25s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+.card.sold .card-media {
+    opacity: .5;
+}
+
+/* Image area */
+.card-media {
+    position: relative;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    aspect-ratio: 1 / 1.05;
+    background: var(--surface);
+}
+
+.card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Placeholder initials */
+.ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #C7C7CF;
+    letter-spacing: .04em;
+}
+
+/* Discount tag */
+.discount-tag {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 8px;
+}
+
+/* Favorite button */
+.fav-chip {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    transition: color .15s;
+}
+
+.fav-chip.active {
+    color: var(--accent);
+}
+
+.fav-chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Card body */
+.card-body {
+    padding: 14px 12px 12px;
+}
+
+.card-shop {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: 0 0 3px;
+    font-weight: 500;
+}
+
+.card-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+}
+
+/* Price row */
+.price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.price-group {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.price {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent-deep);
+    white-space: nowrap;
+}
+
+.price-old {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-decoration: line-through;
+    white-space: nowrap;
+}
+
+/* Add-to-cart button */
+.add-chip {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+}
+
+.add-chip:hover {
+    background: var(--accent-deep);
+}
+
+.add-chip:focus-visible {
+    outline: 2px solid var(--accent-deep);
+    outline-offset: 2px;
+}
+
+/* Sold out pill */
+.sold-label {
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* Stock note */
+.stock-note {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 5px;
+}
+
+/* ─── Bottom navigation bar (mobile + tablet) ───────────── */
+.bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 20px rgba(20, 20, 30, .07);
+    padding-bottom: env(safe-area-inset-bottom, 0px); /* iPhone notch */
+}
+
+.bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 4px 12px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: color .15s;
+}
+
+.bottom-nav-item svg {
+    flex-shrink: 0;
+    transition: color .15s;
+}
+
+.bottom-nav-item.active,
+.bottom-nav-item:hover {
+    color: var(--accent);
+}
+
+/* Add bottom padding to .wrap so content isn't hidden behind the nav */
+@media (max-width: 1023px) {
+    .wrap { padding-bottom: 80px; }
+}
+
+/* Hide bottom nav on desktop */
+@media (min-width: 1024px) {
+    .bottom-nav { display: none; }
+}

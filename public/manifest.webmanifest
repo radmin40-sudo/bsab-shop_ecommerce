@@ -1,0 +1,11 @@
+{
+    "name": "Common Ground Marketplace",
+    "short_name": "Common Ground",
+    "description": "A considered marketplace for independent makers.",
+    "theme_color": "#1e2420",
+    "background_color": "#f7f6f2",
+    "display": "standalone",
+    "orientation": "portrait",
+    "start_url": "/",
+    "scope": "/"
+}
