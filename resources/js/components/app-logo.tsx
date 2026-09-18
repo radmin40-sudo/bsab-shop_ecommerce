@@ -15,7 +15,15 @@ export default function AppLogo() {
         <>
             <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center overflow-hidden rounded-md">
                 {logoPath ? (
-                    <img src={logoPath} alt={brandName} className="h-full w-full object-cover" />
+                    <img
+                        src={logoPath}
+                        alt={brandName}
+                        onError={(event) => {
+                            event.currentTarget.onerror = null;
+                            event.currentTarget.src = '/logo.svg';
+                        }}
+                        className="h-full w-full object-contain"
+                    />
                 ) : (
                     <AppLogoIcon className="size-5 fill-current text-white dark:text-black" />
                 )}

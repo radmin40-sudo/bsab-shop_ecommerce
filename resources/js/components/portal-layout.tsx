@@ -151,7 +151,19 @@ export function PortalLayout({
                         className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-[#48ad68] to-[#1f7a42] text-white shadow-lg shadow-[#1f7a42]/20"
                         aria-label={`${brandName} home`}
                     >
-                        {logoPath ? <img src={logoPath} alt={brandName} className="h-full w-full object-cover" /> : <Store size={20} />}
+                        {logoPath ? (
+                            <img
+                                src={logoPath}
+                                alt={brandName}
+                                onError={(event) => {
+                                    event.currentTarget.onerror = null;
+                                    event.currentTarget.src = '/logo.svg';
+                                }}
+                                className="h-full w-full object-contain"
+                            />
+                        ) : (
+                            <Store size={20} />
+                        )}
                     </Link>
                     <div>
                         <Link href="/" className="font-display text-lg font-bold text-[#163b24]">
