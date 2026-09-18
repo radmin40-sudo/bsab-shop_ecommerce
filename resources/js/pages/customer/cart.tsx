@@ -82,9 +82,7 @@ export default function CustomerCart() {
         new Map<number, CartShopWithQr>(
             items.flatMap((item) => {
                 const shop = item.product?.shop;
-                return shop?.gcash_qr_code_url
-                    ? [[shop.id, { ...shop, gcash_qr_code_url: shop.gcash_qr_code_url }] as [number, CartShopWithQr]]
-                    : [];
+                return shop?.gcash_qr_code_url ? [[shop.id, { ...shop, gcash_qr_code_url: shop.gcash_qr_code_url }] as [number, CartShopWithQr]] : [];
             }),
         ).values(),
     );
@@ -454,14 +452,12 @@ export default function CustomerCart() {
                                                                 <p className="mb-2 truncate text-xs font-semibold text-[#163b24]">{shop.name}</p>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() =>
-                                                                        setQrPreview({ name: shop.name, url: shop.gcash_qr_code_url })
-                                                                    }
+                                                                    onClick={() => setQrPreview({ name: shop.name, url: shop.gcash_qr_code_url })}
                                                                     className="mx-auto block cursor-zoom-in rounded-lg bg-white p-2 transition hover:scale-[1.03] hover:shadow-md"
                                                                     aria-label={`Enlarge ${shop.name} GCash QR code`}
                                                                 >
-                                                                        <img
-                                                                            src={shop.gcash_qr_code_url}
+                                                                    <img
+                                                                        src={shop.gcash_qr_code_url}
                                                                         alt={`${shop.name} GCash QR code`}
                                                                         className="h-36 w-36 rounded-lg object-contain"
                                                                     />
