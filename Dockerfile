@@ -1,7 +1,12 @@
 # Build frontend assets with the repository's Node toolchain.
-FROM node:22-bookworm-slim AS frontend
+FROM node:22-alpine AS frontend
 
 WORKDIR /app
+
+RUN apk update \
+    && apk upgrade \
+    && rm -rf /var/cache/apk/*
+
 COPY package*.json ./
 RUN npm ci
 COPY resources ./resources
@@ -48,4 +53,3 @@ ENV APP_DEBUG=false
 EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/bsabshop-entrypoint"]
-CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
