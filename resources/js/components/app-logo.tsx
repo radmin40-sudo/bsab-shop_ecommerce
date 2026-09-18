@@ -1,6 +1,6 @@
-import AppLogoIcon from './app-logo-icon';
-import { usePage } from '@inertiajs/react';
 import type { SharedData } from '@/types';
+import { usePage } from '@inertiajs/react';
+import AppLogoIcon from './app-logo-icon';
 
 function imageUrl(path?: string | null) {
     return path ? (path.startsWith('http') || path.startsWith('/') ? path : `/storage/${path}`) : null;
