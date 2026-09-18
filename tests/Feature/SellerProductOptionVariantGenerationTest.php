@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Cart;
+use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -98,6 +100,56 @@ class SellerProductOptionVariantGenerationTest extends TestCase
         $this->assertEquals(4, $product->variants()->count());
     }
 
+    public function test_product_model_exposes_existing_variant_option_spec(): void
+    {
+        Role::findOrCreate('seller');
+
+        $user = User::factory()->create();
+        $user->assignRole('seller');
+
+        $shop = $user->shop()->create([
+            'name' => $user->name.' Shop',
+            'slug' => 'shop-'.uniqid(),
+            'status' => 'approved',
+            'commission_rate' => 10,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Fashion',
+            'slug' => 'fashion-'.uniqid(),
+            'image' => null,
+        ]);
+
+        $product = Product::query()->create([
+            'shop_id' => $shop->id,
+            'seller_id' => $user->id,
+            'category_id' => $category->id,
+            'name' => 'Editable Combo Shirt',
+            'slug' => 'editable-combo-shirt-'.uniqid(),
+            'description' => 'A shirt',
+            'base_price' => '100.00',
+            'sale_price' => '90.00',
+            'sku' => 'EDITABLE-SHIRT-'.uniqid(),
+            'stock_quantity' => '50',
+            'status' => 'draft',
+            'is_active' => true,
+        ]);
+
+        $colorOption = $product->options()->create(['name' => 'Color', 'sort_order' => 0]);
+        $colorOption->values()->createMany([
+            ['value' => 'Red', 'sort_order' => 0],
+            ['value' => 'Blue', 'sort_order' => 1],
+        ]);
+
+        $sizeOption = $product->options()->create(['name' => 'Size', 'sort_order' => 1]);
+        $sizeOption->values()->createMany([
+            ['value' => 'M', 'sort_order' => 0],
+            ['value' => 'L', 'sort_order' => 1],
+        ]);
+
+        $this->assertSame("Color: Red, Blue\nSize: M, L", $product->fresh()->product_options);
+    }
+
     public function test_seller_variant_sync_can_recreate_default_variant_without_duplicate_sku_collision(): void
     {
         Role::findOrCreate('seller');
@@ -179,5 +231,75 @@ class SellerProductOptionVariantGenerationTest extends TestCase
 
         $this->assertEquals(2, $product->images()->count());
         $this->assertNotNull($product->short_video_path);
+    }
+
+    public function test_customer_can_submit_gcash_checkout_with_receipt_upload(): void
+    {
+        Role::findOrCreate('customer');
+
+        $user = User::factory()->create();
+        $user->assignRole('customer');
+
+        $shop = $user->shop()->create([
+            'name' => $user->name.' Shop',
+            'slug' => 'shop-'.uniqid(),
+            'status' => 'approved',
+            'commission_rate' => 10,
+            'gcash_enabled' => true,
+            'gcash_account_name' => 'Juan Dela Cruz',
+            'gcash_mobile_number' => '09171234567',
+            'gcash_qr_code' => 'gcash-qr/test.png',
+        ]);
+
+        $category = Category::create([
+            'name' => 'Fashion',
+            'slug' => 'fashion-'.uniqid(),
+            'image' => null,
+        ]);
+
+        $product = Product::query()->create([
+            'shop_id' => $shop->id,
+            'seller_id' => $user->id,
+            'category_id' => $category->id,
+            'name' => 'GCash Ready Shirt',
+            'slug' => 'gcash-ready-shirt-'.uniqid(),
+            'description' => 'A shirt',
+            'base_price' => '100.00',
+            'sale_price' => '90.00',
+            'sku' => 'GCASH-SHIRT-'.uniqid(),
+            'stock_quantity' => '50',
+            'status' => 'published',
+            'is_active' => true,
+            'is_approved' => true,
+        ]);
+
+        $cart = Cart::create(['user_id' => $user->id]);
+        CartItem::create([
+            'cart_id' => $cart->id,
+            'product_id' => $product->id,
+            'variant_id' => null,
+            'quantity' => 1,
+            'price_snapshot' => 90.00,
+        ]);
+
+        Storage::fake('public');
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => json_encode([
+                    'full_name' => 'Test Customer',
+                    'phone' => '09171234567',
+                    'line1' => '123 Main Street',
+                    'city' => 'Pasig',
+                    'province' => 'Metro Manila',
+                    'postal_code' => '1600',
+                ]),
+                'payment_method' => 'gcash',
+                'gcash_receipt' => UploadedFile::fake()->create('receipt.png', 64, 'image/png'),
+            ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('orders', ['user_id' => $user->id, 'payment_method' => 'gcash', 'payment_status' => 'pending']);
+        $this->assertDatabaseHas('payments', ['gateway' => 'gcash', 'gcash_reference_number' => null]);
     }
 }

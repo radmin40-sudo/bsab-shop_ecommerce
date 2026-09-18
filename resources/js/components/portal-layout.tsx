@@ -94,6 +94,7 @@ const sellerNavigationGroups: { id: string; label: string; items: NavigationItem
         items: [
             { label: 'Products', href: '/seller/products', icon: Package },
             { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
+            { label: 'Vouchers', href: '/seller/vouchers', icon: Tag },
         ],
     },
     {
@@ -104,7 +105,6 @@ const sellerNavigationGroups: { id: string; label: string; items: NavigationItem
             { label: 'Shop Profile', href: '/seller/shop', icon: Store },
         ],
     },
-    { id: 'vouchers', label: '', items: [{ label: 'Vouchers', href: '/seller/vouchers', icon: Tag }] },
 ];
 
 export function PortalLayout({

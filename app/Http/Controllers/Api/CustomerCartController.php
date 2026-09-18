@@ -20,6 +20,13 @@ class CustomerCartController extends Controller
     public function show(Request $request)
     {
         $cart = $this->cart($request)->load('items.product.shop', 'items.product.images', 'items.variant');
+        $cart->items->each(function (CartItem $item) {
+            $shop = $item->product?->shop;
+
+            if ($shop?->gcash_qr_code) {
+                $shop->setAttribute('gcash_qr_code_url', '/storage/'.$shop->gcash_qr_code);
+            }
+        });
         $cart->setAttribute('available_vouchers', Voucher::with('shop:id,name')
             ->where(function ($query) {
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());

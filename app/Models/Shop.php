@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shop extends Model
 {
-    protected $fillable = ['user_id', 'created_by', 'name', 'slug', 'logo', 'banner', 'description', 'status', 'commission_rate', 'payout_details'];
+    protected $fillable = ['user_id', 'created_by', 'name', 'slug', 'logo', 'banner', 'description', 'status', 'commission_rate', 'payout_details', 'gcash_enabled', 'gcash_account_name', 'gcash_mobile_number', 'gcash_qr_code'];
 
     protected function casts(): array
     {
-        return ['payout_details' => 'array', 'commission_rate' => 'decimal:2'];
+        return ['payout_details' => 'array', 'commission_rate' => 'decimal:2', 'gcash_enabled' => 'boolean'];
     }
 
     public function user()

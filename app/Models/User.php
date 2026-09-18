@@ -84,4 +84,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(VoucherRedemption::class);
     }
+
+    public function claimedVouchers()
+    {
+        return $this->hasMany(UserVoucher::class);
+    }
 }

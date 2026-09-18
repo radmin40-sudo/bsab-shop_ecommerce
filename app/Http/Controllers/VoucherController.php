@@ -37,6 +37,9 @@ class VoucherController extends Controller
         $data = $this->validated($request, $isAdmin);
         $data['shop_id'] = $isAdmin ? ($data['shop_id'] ?? null) : $shop->id;
         $data['created_by_role'] = $isAdmin ? 'admin' : 'seller';
+        $data['title'] = $data['title'] ?? $data['code'];
+        $data['status'] = $data['status'] ?? 'active';
+        $data['total_claim_limit'] = $data['usage_limit'] ?? null;
         Voucher::create($data);
 
         return back();
@@ -49,6 +52,7 @@ class VoucherController extends Controller
         abort_unless($isAdmin || ($shop && $voucher->shop_id === $shop->id), 403);
         $data = $this->validated($request, $isAdmin, $voucher);
         $data['shop_id'] = $isAdmin ? ($data['shop_id'] ?? null) : $shop->id;
+        $data['total_claim_limit'] = $data['usage_limit'] ?? null;
         $voucher->update($data);
 
         return back();
@@ -75,6 +79,10 @@ class VoucherController extends Controller
             'max_discount' => ['nullable', 'numeric', 'min:0'],
             'expires_at' => ['nullable', 'date'],
             'usage_limit' => ['nullable', 'integer', 'min:1'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
+            'start_date' => ['nullable', 'date'],
         ]);
     }
 }

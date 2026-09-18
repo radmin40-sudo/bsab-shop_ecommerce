@@ -20,7 +20,10 @@ class SellerProductController extends Controller
         $shop = $this->shopFor($request);
 
         return Inertia::render('seller/products', [
-            'products' => $shop->products()->with(['category:id,name', 'images:id,product_id,path,is_primary'])->latest()->get(),
+            'products' => $shop->products()
+                ->with(['category:id,name', 'images:id,product_id,path,is_primary', 'options.values'])
+                ->latest()
+                ->get(),
             'categories' => Category::orderBy('name')->get(['id', 'name']),
         ]);
     }

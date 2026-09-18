@@ -2,7 +2,7 @@ import { PortalLayout } from '@/components/portal-layout';
 import { api } from '@/lib/api';
 import { Head, Link } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, CalendarDays, Package, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Package, Truck } from 'lucide-react';
 
 export default function CustomerOrders() {
     const { data, isLoading } = useQuery({
@@ -14,11 +14,20 @@ export default function CustomerOrders() {
     return (
         <>
             <Head title="Your orders" />
-            <PortalLayout role="customer" title="Your orders" eyebrow="Order history">
-                <div className="mb-6">
-                    <p className="text-xs font-bold tracking-[0.18em] text-[#2c9350] uppercase">A record of your finds</p>
-                    <h2 className="font-display mt-2 text-3xl font-bold text-[#163b24]">Order history</h2>
-                    <p className="mt-1 text-sm text-[#647568]">Follow every order from confirmation to delivery.</p>
+            <PortalLayout role="customer" title="Your orders" eyebrow="Order history" hideHeader>
+                <div className="mb-6 flex items-start gap-4">
+                    <Link
+                        href="/"
+                        aria-label="Back to home"
+                        className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#def0e2] bg-white text-[#1b4332] shadow-sm transition hover:bg-[#f5fcf7]"
+                    >
+                        <ArrowLeft size={18} />
+                    </Link>
+                    <div>
+                        <p className="text-xs font-bold tracking-[0.18em] text-[#2c9350] uppercase">A record of your finds</p>
+                        <h2 className="font-display mt-2 text-3xl font-bold text-[#163b24]">Order history</h2>
+                        <p className="mt-1 text-sm text-[#647568]">Follow every order from confirmation to delivery.</p>
+                    </div>
                 </div>
                 {orders.length ? (
                     <div className="space-y-4">
@@ -82,7 +91,11 @@ export default function CustomerOrders() {
                                             ₱{Number(order.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </p>
                                         <Link
-                                            href={`/customer/orders/${order.id}`}
+                                            href={
+                                                order.items?.[0]?.id
+                                                    ? `/customer/order-tracking?selected_item_ids[]=${order.items[0].id}`
+                                                    : '/customer/order-tracking'
+                                            }
                                             className="flex items-center gap-1 text-xs font-bold text-[#2c7a3b] sm:mt-3 sm:inline-flex"
                                         >
                                             View order <ArrowRight size={14} />

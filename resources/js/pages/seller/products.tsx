@@ -1,7 +1,7 @@
 import { PortalLayout, StatCard } from '@/components/portal-layout';
 import { Head, useForm } from '@inertiajs/react';
-import { ImagePlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { FormEventHandler, useMemo, useState } from 'react';
+import { Eye, ImagePlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { FormEventHandler, Fragment, useMemo, useState } from 'react';
 
 type Product = {
     id: number;
@@ -185,6 +185,8 @@ export default function SellerProducts({ products, categories }: { products: Pro
     const [cropImage, setCropImage] = useState<CropImage | null>(null);
     const [existingImages, setExistingImages] = useState<{ path: string; is_primary: boolean }[]>([]);
     const [existingVideo, setExistingVideo] = useState('');
+    const [viewProductId, setViewProductId] = useState<number | null>(null);
+    const [aiAnalyzing, setAiAnalyzing] = useState(false);
     const form = useForm<ProductForm>(blank);
     const visibleProducts = useMemo(
         () =>
@@ -337,6 +339,99 @@ export default function SellerProducts({ products, categories }: { products: Pro
         await applyCurrentCrop(true);
     };
 
+    const removeQueuedImage = (fileToRemove: File) => {
+        const nextImages = form.data.images.filter((file) => file !== fileToRemove);
+        const nextCropQueue = cropQueue.filter((file) => file !== fileToRemove);
+
+        form.setData('images', nextImages);
+        setCropQueue(nextCropQueue);
+
+        if (cropImage && cropImage.file === fileToRemove) {
+            URL.revokeObjectURL(cropImage.url);
+            setCropImage(null);
+        }
+
+        if (form.data.image === fileToRemove) {
+            form.setData('image', nextImages[0] ?? null);
+        }
+
+        if (nextCropQueue.length > 0 && (!cropImage || cropImage.file === fileToRemove)) {
+            chooseCrop(nextCropQueue[0], nextImages);
+        }
+    };
+
+    const analyzeWithAi = async () => {
+        const sourceImage = form.data.image ?? form.data.images[0] ?? null;
+
+        if (!sourceImage) {
+            setImageError('Please choose an image first before running AI analysis.');
+            return;
+        }
+
+        if (!isKnownImageMime(sourceImage)) {
+            setImageError('Please select a JPG, PNG, or WebP image for AI analysis.');
+            return;
+        }
+
+        setAiAnalyzing(true);
+        setImageError('');
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+            const formData = new FormData();
+            formData.append('image', sourceImage);
+
+            const response = await fetch(route('seller.products.ai-analyze'), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: formData,
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Unable to analyze this image right now. Please try again.');
+            }
+
+            const analysis = payload.data ?? {};
+
+            form.setData('name', analysis.name ?? form.data.name);
+            form.setData('description', analysis.description ?? form.data.description);
+            form.setData('brand', analysis.brand ?? form.data.brand);
+            form.setData('material', analysis.material ?? form.data.material);
+            form.setData('color', analysis.colors?.[0] ?? form.data.color);
+            form.setData('size', analysis.sizes?.join(', ') ?? form.data.size);
+            form.setData(
+                'product_options',
+                analysis.options?.length
+                    ? analysis.options
+                          .map((option: { name?: string; values?: string[] }) => `${option.name}: ${option.values?.join(', ') ?? ''}`)
+                          .join('\n')
+                    : form.data.product_options,
+            );
+
+            if (analysis.category_id) {
+                form.setData('category_id', String(analysis.category_id));
+            } else {
+                form.setData('category_id', '');
+            }
+
+            if (analysis.category_name) {
+                form.setError('category_id', '');
+            }
+
+            setImageError('');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to analyze this image right now. Please try again.';
+            setImageError(message);
+        } finally {
+            setAiAnalyzing(false);
+        }
+    };
+
     return (
         <>
             <Head title="Products" />
@@ -365,54 +460,16 @@ export default function SellerProducts({ products, categories }: { products: Pro
                 </div>
                 <section className="mt-6 overflow-x-auto border border-[#dfe3dc] bg-white">
                     <div className="table-wrapper">
-                        <table className="w-full min-w-[2300px] border-collapse text-[13px]">
+                        <table className="w-full min-w-225 border-collapse text-[13px]">
                             <thead className="bg-[#f7f7f7]">
                                 <tr>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">ID</th>
                                     <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Image</th>
                                     <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
                                         Product Name
                                     </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">SKU</th>
                                     <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Brand</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Model</th>
                                     <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Category</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Condition</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Base Price
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Sale Price
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Stock</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Selling Unit
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Barcode</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Color</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Size</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Material</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Weight</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Volume</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Pack Qty</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Length</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Width</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Height</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Description
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Warranty</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Country</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Total Images
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Product Video
-                                    </th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Status</th>
-                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">
-                                        Created At
-                                    </th>
+                                    <th className="border-r border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Price</th>
                                     <th className="border-b border-[#ddd] px-3 py-3 text-left font-semibold whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
@@ -430,143 +487,228 @@ export default function SellerProducts({ products, categories }: { products: Pro
                                               year: 'numeric',
                                           })
                                         : '—';
+                                    const isExpanded = viewProductId === product.id;
+                                    const price = product.sale_price || product.base_price;
 
                                     return (
-                                        <tr key={product.id} className="hover:bg-[#fafafa]">
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">{product.id}</td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
-                                                {image ? (
-                                                    <img
-                                                        src={`/storage/${image.path}`}
-                                                        alt={product.name}
-                                                        className="h-16.25 w-16.25 rounded-[7px] border border-[#ddd] object-cover"
-                                                    />
-                                                ) : (
-                                                    <span className="flex h-16.25 w-16.25 items-center justify-center rounded-[7px] border border-[#ddd] bg-[#f5f5f5] text-[11px] text-[#888]">
-                                                        <ImagePlus size={18} />
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="max-w-62.5 border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-normal">
-                                                {product.name}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.sku}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.brand ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.model ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.category?.name ?? 'Uncategorized'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066] capitalize">
-                                                {product.condition ?? 'new'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-nowrap">
-                                                {formatMoney(product.base_price)}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-nowrap text-[#16833b]">
-                                                {formatMoney(product.sale_price)}
-                                            </td>
-                                            <td
-                                                className={`border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-nowrap ${product.stock_quantity <= 0 ? 'text-[#b00020]' : ''}`}
-                                            >
-                                                {product.stock_quantity}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.selling_unit ?? 'Piece'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.barcode ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.color ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.size ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.material ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.weight ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.volume ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.pack_quantity ?? '1'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.length ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.width ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.height ?? '—'}
-                                            </td>
-                                            <td className="max-w-62.5 border-r border-b border-[#eee] px-3 py-3 align-middle leading-4 whitespace-normal text-[#657066]">
-                                                {product.description ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.warranty ?? '—'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {product.country_of_origin ?? 'Philippines'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {imageCount} {imageCount === 1 ? 'image' : 'images'}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
-                                                {video ? (
-                                                    <video
-                                                        src={video}
-                                                        controls
-                                                        className="h-23.75 w-42.5 rounded-[7px] border border-[#ddd] bg-black object-cover"
-                                                    />
-                                                ) : (
-                                                    <span className="text-[12px] text-[#999]">No video</span>
-                                                )}
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
-                                                <span
-                                                    className={`inline-block rounded-[20px] px-2.5 py-1 text-[11px] font-semibold ${active === 'active' ? 'bg-[#e8f7ee] text-[#16833b]' : 'bg-[#f1f1f1] text-[#777]'}`}
-                                                >
-                                                    {status}
-                                                </span>
-                                            </td>
-                                            <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
-                                                {createdAt}
-                                            </td>
-                                            <td className="border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => show(product)}
-                                                        className="rounded-[6px] border border-[#ddd] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#222] hover:bg-[#f5f5f5]"
-                                                    >
-                                                        <Pencil size={13} className="mr-1 inline" /> Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            window.confirm(`Delete ${product.name}?`) &&
-                                                            form.delete(route('seller.products.destroy', product.id), { preserveScroll: true })
-                                                        }
-                                                        className="rounded-[6px] border border-[#ddd] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#b00020] hover:bg-[#fff0f2]"
-                                                    >
-                                                        <Trash2 size={13} className="mr-1 inline" /> Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <Fragment key={product.id}>
+                                            <tr className="hover:bg-[#fafafa]">
+                                                <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
+                                                    {image ? (
+                                                        <img
+                                                            src={`/storage/${image.path}`}
+                                                            alt={product.name}
+                                                            className="block h-16 w-16 shrink-0 rounded-[7px] border border-[#ddd] object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex h-16.25 w-16.25 items-center justify-center rounded-[7px] border border-[#ddd] bg-[#f5f5f5] text-[11px] text-[#888]">
+                                                            <ImagePlus size={18} />
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="max-w-62.5 border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-normal">
+                                                    {product.name}
+                                                </td>
+                                                <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
+                                                    {product.brand ?? '—'}
+                                                </td>
+                                                <td className="border-r border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap text-[#657066]">
+                                                    {product.category?.name ?? 'Uncategorized'}
+                                                </td>
+                                                <td className="border-r border-b border-[#eee] px-3 py-3 align-middle font-semibold whitespace-nowrap">
+                                                    {formatMoney(price)}
+                                                </td>
+                                                <td className="border-b border-[#eee] px-3 py-3 align-middle whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setViewProductId(isExpanded ? null : product.id)}
+                                                            className="rounded-[6px] border border-[#ddd] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#222] hover:bg-[#f5f5f5]"
+                                                        >
+                                                            <Eye size={13} className="mr-1 inline" /> {isExpanded ? 'Hide' : 'View'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => show(product)}
+                                                            className="rounded-[6px] border border-[#ddd] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#222] hover:bg-[#f5f5f5]"
+                                                        >
+                                                            <Pencil size={13} className="mr-1 inline" /> Edit
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                window.confirm(`Delete ${product.name}?`) &&
+                                                                form.delete(route('seller.products.destroy', product.id), { preserveScroll: true })
+                                                            }
+                                                            className="rounded-[6px] border border-[#ddd] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#b00020] hover:bg-[#fff0f2]"
+                                                        >
+                                                            <Trash2 size={13} className="mr-1 inline" /> Delete
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {isExpanded && (
+                                                <tr key={`${product.id}-details`} className="bg-[#fafafa]">
+                                                    <td colSpan={6} className="border-r border-b border-[#eee] px-3 py-4">
+                                                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    SKU
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.sku || '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Model
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.model ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Condition
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222] capitalize">
+                                                                    {product.condition ?? 'new'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Stock
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.stock_quantity}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Selling Unit
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.selling_unit ?? 'Piece'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Barcode
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.barcode ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Color
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.color ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Size
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.size ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Material
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.material ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Weight
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.weight ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Volume
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.volume ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Pack Qty
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.pack_quantity ?? '1'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Length
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.length ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Width
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.width ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Height
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.height ?? '—'}</div>
+                                                            </div>
+                                                            <div className="md:col-span-2 xl:col-span-3">
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Description
+                                                                </div>
+                                                                <div className="mt-1 text-sm leading-5 text-[#222]">{product.description ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Warranty
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{product.warranty ?? '—'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Country
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">
+                                                                    {product.country_of_origin ?? 'Philippines'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Total Images
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">
+                                                                    {imageCount} {imageCount === 1 ? 'image' : 'images'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Status
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{status}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Created At
+                                                                </div>
+                                                                <div className="mt-1 text-sm text-[#222]">{createdAt}</div>
+                                                            </div>
+                                                            <div className="md:col-span-2 xl:col-span-3">
+                                                                <div className="text-[10px] font-semibold tracking-wide text-[#657066] uppercase">
+                                                                    Product Video
+                                                                </div>
+                                                                <div className="mt-2">
+                                                                    {video ? (
+                                                                        <video
+                                                                            src={video}
+                                                                            controls
+                                                                            className="h-23.75 w-42.5 rounded-[7px] border border-[#ddd] bg-black object-cover"
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-[12px] text-[#999]">No video</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
                                     );
                                 })}
                                 {visibleProducts.length === 0 && (
                                     <tr>
-                                        <td colSpan={31} className="px-5 py-12 text-center text-sm text-[#657066]">
+                                        <td colSpan={6} className="px-5 py-12 text-center text-sm text-[#657066]">
                                             {search ? 'No products match your search.' : 'No products yet. Add your first product to get started.'}
                                         </td>
                                     </tr>
@@ -626,11 +768,21 @@ export default function SellerProducts({ products, categories }: { products: Pro
                                         <div className="upload-text">Select multiple images. The first image will be the primary image.</div>
                                     </label>
                                     {imageError && <span className="text-xs font-normal text-[#a23b2d]">{imageError}</span>}
+                                    <div className="flex items-center justify-between gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={analyzeWithAi}
+                                            disabled={aiAnalyzing}
+                                            className="rounded-[6px] bg-[#1e2420] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#9ca3af]"
+                                        >
+                                            {aiAnalyzing ? 'Analyzing...' : '✨ Analyze with AI'}
+                                        </button>
+                                    </div>
                                     {form.data.image && (
                                         <img
                                             src={URL.createObjectURL(form.data.image)}
                                             alt="Cropped product preview"
-                                            className="h-32 w-32 rounded-xl object-cover"
+                                            className="aspect-square h-32 w-32 rounded-xl object-cover"
                                         />
                                     )}
                                     {existingImages.length > 0 && (
@@ -640,7 +792,7 @@ export default function SellerProducts({ products, categories }: { products: Pro
                                                     key={`${image.path}-${index}`}
                                                     src={`/storage/${image.path}`}
                                                     alt="Current product"
-                                                    className="h-24 w-24 rounded-lg border object-cover"
+                                                    className="aspect-square h-24 w-24 rounded-lg border object-cover"
                                                 />
                                             ))}
                                         </div>
@@ -658,8 +810,16 @@ export default function SellerProducts({ products, categories }: { products: Pro
                                                             <img
                                                                 src={URL.createObjectURL(file)}
                                                                 alt={file.name}
-                                                                className="h-16 w-16 rounded-lg border object-cover"
+                                                                className="aspect-square h-16 w-16 rounded-lg border object-cover"
                                                             />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeQueuedImage(file)}
+                                                                className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#b00020] text-[10px] font-bold text-white"
+                                                                aria-label={`Remove ${file.name}`}
+                                                            >
+                                                                ×
+                                                            </button>
                                                             <span className="absolute top-0 left-0 rounded bg-black/70 px-1 text-[10px] text-white">
                                                                 {isPending ? 'Pending' : 'Done'}
                                                             </span>

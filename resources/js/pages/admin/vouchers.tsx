@@ -12,6 +12,10 @@ type Voucher = {
     expires_at?: string | null;
     usage_limit?: number | null;
     times_used: number;
+    title?: string | null;
+    status?: string;
+    total_claimed?: number;
+    total_claim_limit?: number | null;
 };
 type Shop = { id: number; name: string };
 type Form = {
@@ -23,8 +27,10 @@ type Form = {
     max_discount: string;
     expires_at: string;
     usage_limit: string;
+    title: string;
+    status: string;
 };
-const blank: Form = { code: '', type: 'percent', value: '', shop_id: '', min_spend: '0', max_discount: '', expires_at: '', usage_limit: '' };
+const blank: Form = { code: '', type: 'percent', value: '', shop_id: '', min_spend: '0', max_discount: '', expires_at: '', usage_limit: '', title: '', status: 'active' };
 export default function Vouchers({ vouchers, shops }: { vouchers: Voucher[]; shops: Shop[] }) {
     const [editing, setEditing] = useState<Voucher | null>(null);
     const [open, setOpen] = useState(false);
@@ -39,6 +45,8 @@ export default function Vouchers({ vouchers, shops }: { vouchers: Voucher[]; sho
                       code: voucher.code,
                       type: voucher.type,
                       value: voucher.value,
+                      title: voucher.title ?? '',
+                      status: voucher.status ?? 'active',
                       shop_id: String(voucher.shop?.id ?? ''),
                       usage_limit: String(voucher.usage_limit ?? ''),
                   }
@@ -107,8 +115,9 @@ export default function Vouchers({ vouchers, shops }: { vouchers: Voucher[]; sho
                                         </td>
                                         <td className="px-5 py-4 text-[#657066]">{voucher.shop?.name ?? 'All shops'}</td>
                                         <td className="px-5 py-4">
-                                            {voucher.times_used}
-                                            {voucher.usage_limit ? ` / ${voucher.usage_limit}` : ''}
+                                            {voucher.total_claimed ?? voucher.times_used}
+                                            {(voucher.total_claim_limit ?? voucher.usage_limit) ? ` / ${voucher.total_claim_limit ?? voucher.usage_limit}` : ''}
+                                            <span className="mt-1 block text-xs text-[#657066]">{voucher.total_claim_limit ? `${Math.max(0, voucher.total_claim_limit - (voucher.total_claimed ?? 0))} remaining` : 'Unlimited claims'}</span>
                                         </td>
                                         <td className="px-5 py-4">
                                             <div className="flex justify-end gap-2">
@@ -191,6 +200,10 @@ export default function Vouchers({ vouchers, shops }: { vouchers: Voucher[]; sho
                                 </label>
                             )}
                             <label className="grid gap-2 text-sm font-semibold">
+                                Title
+                                <input value={form.data.title} onChange={(event) => form.setData('title', event.target.value)} className="border px-3 py-2.5 font-normal" placeholder="P100 OFF" />
+                            </label>
+                            <label className="grid gap-2 text-sm font-semibold">
                                 Usage limit
                                 <input
                                     type="number"
@@ -199,6 +212,13 @@ export default function Vouchers({ vouchers, shops }: { vouchers: Voucher[]; sho
                                     onChange={(event) => form.setData('usage_limit', event.target.value)}
                                     className="border px-3 py-2.5 font-normal"
                                 />
+                            </label>
+                            <label className="grid gap-2 text-sm font-semibold">
+                                Status
+                                <select value={form.data.status} onChange={(event) => form.setData('status', event.target.value)} className="border px-3 py-2.5 font-normal">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
                             </label>
                             <div className="flex justify-end gap-2">
                                 <button type="button" onClick={() => setOpen(false)} className="border px-4 py-2 text-sm">

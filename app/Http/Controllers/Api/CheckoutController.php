@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\Shop;
+use App\Models\UserVoucher;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class CheckoutController extends Controller
@@ -25,7 +28,15 @@ class CheckoutController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $shippingAddress = $request->input('shipping_address');
+
+        if (is_string($shippingAddress)) {
+            $shippingAddress = json_decode($shippingAddress, true);
+        }
+
+        $request->merge(['shipping_address' => $shippingAddress]);
+
+        $validated = Validator::make($request->all(), [
             'shipping_address' => 'required|array',
             'shipping_address.full_name' => 'required|string|max:255',
             'shipping_address.phone' => 'required|string|max:50',
@@ -33,33 +44,60 @@ class CheckoutController extends Controller
             'shipping_address.city' => 'required|string|max:255',
             'shipping_address.province' => 'required|string|max:255',
             'shipping_address.postal_code' => 'required|string|max:20',
-            'payment_method' => 'required|string|max:50',
+            'payment_method' => 'required|string|in:cash_on_delivery,gcash',
             'voucher_code' => 'nullable|string|max:50',
-        ]);
+            'selected_item_ids' => 'required|array|min:1',
+            'selected_item_ids.*' => 'integer',
+            'gcash_receipt' => ['nullable', 'required_if:payment_method,gcash', 'file', 'image', 'max:5120'],
+        ])->validate();
 
-        $order = DB::transaction(function () use ($request, $data) {
-            $cart = Cart::with('items.product', 'items.variant')->where('user_id', $request->user()->id)->firstOrFail();
-            abort_if($cart->items->isEmpty(), 422, 'Your cart is empty.');
+        $gcashReceiptPath = null;
+        if ($request->hasFile('gcash_receipt')) {
+            $gcashReceiptPath = $request->file('gcash_receipt')->store('gcash-receipts', 'public');
+        }
+
+        $order = DB::transaction(function () use ($request, $validated, $gcashReceiptPath) {
+            $cart = Cart::with('items.product.shop', 'items.variant')->where('user_id', $request->user()->id)->firstOrFail();
+            $selectedItemIds = collect($validated['selected_item_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+            $cart->setRelation('items', $cart->items->whereIn('id', $selectedItemIds)->values());
+            abort_if($cart->items->isEmpty(), 422, 'Select at least one product to checkout.');
+
+            if ($validated['payment_method'] === 'gcash') {
+                $shopIds = $cart->items->pluck('product.shop_id')->filter()->unique()->values();
+
+                foreach ($shopIds as $shopId) {
+                    $shop = Shop::find($shopId);
+
+                    abort_unless(
+                        $shop && $shop->gcash_enabled && $shop->gcash_account_name && $shop->gcash_mobile_number && $shop->gcash_qr_code,
+                        422,
+                        'One or more sellers have not completed their GCash setup yet.'
+                    );
+                }
+            }
 
             $subtotal = $cart->items->sum(fn ($item) => $item->price_snapshot * $item->quantity);
             $discount = 0;
             $voucher = null;
 
-            if (! empty($data['voucher_code'])) {
-                $voucher = Voucher::whereRaw('LOWER(code) = ?', [strtolower($data['voucher_code'])])->lockForUpdate()->first();
+            if (! empty($validated['voucher_code'])) {
+                $voucher = Voucher::whereRaw('LOWER(code) = ?', [strtolower($validated['voucher_code'])])->lockForUpdate()->first();
                 abort_unless($voucher, 422, 'That voucher code is not valid.');
                 $this->ensureVoucherAvailable($voucher, (float) $subtotal, $request->user()->id);
                 $discount = $this->voucherDiscount($voucher, (float) $subtotal);
             }
+
+            $total = max(0, $subtotal - $discount);
 
             $order = Order::create([
                 'order_number' => 'CG-'.now()->format('ymd').'-'.Str::upper(Str::random(6)),
                 'user_id' => $request->user()->id,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
-                'total' => max(0, $subtotal - $discount),
-                'shipping_address' => $data['shipping_address'],
-                'payment_method' => $data['payment_method'],
+                'total' => $total,
+                'shipping_address' => $validated['shipping_address'],
+                'payment_method' => $validated['payment_method'],
+                'payment_status' => 'pending',
             ]);
 
             if ($voucher) {
@@ -90,9 +128,24 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            if ($validated['payment_method'] === 'gcash') {
+                $shop = $cart->items->first()->product->shop;
+
+                $order->payments()->create([
+                    'gateway' => 'gcash',
+                    'amount' => $total,
+                    'status' => 'submitted',
+                    'gcash_account_name' => $shop->gcash_account_name,
+                    'gcash_mobile_number' => $shop->gcash_mobile_number,
+                    'gcash_qr_code' => $shop->gcash_qr_code,
+                    'receipt_path' => $gcashReceiptPath,
+                ]);
+            }
+
+            $order->load('items.product', 'items.shop', 'payments');
             $cart->items()->delete();
 
-            return $order->load('items.product', 'items.shop');
+            return $order;
         });
 
         return response()->json($order, 201);
@@ -100,8 +153,14 @@ class CheckoutController extends Controller
 
     private function ensureVoucherAvailable(Voucher $voucher, float $subtotal, int $userId): void
     {
+        abort_unless(UserVoucher::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'Claim this voucher before applying it.');
+        abort_if($voucher->status !== 'active', 422, 'That voucher is currently unavailable.');
+        abort_if($voucher->start_date && $voucher->start_date->isFuture(), 422, 'That voucher is not available yet.');
+        abort_if(($voucher->expiration_date ?: $voucher->expires_at)?->isPast(), 422, 'That voucher has expired.');
         abort_if($voucher->expires_at && $voucher->expires_at->isPast(), 422, 'That voucher has expired.');
-        abort_if($voucher->usage_limit !== null && $voucher->times_used >= $voucher->usage_limit, 422, 'That voucher has reached its usage limit.');
+        $limit = $voucher->total_claim_limit ?? $voucher->usage_limit;
+        $claimed = $voucher->total_claimed ?? $voucher->times_used;
+        abort_if($limit !== null && $claimed >= $limit && ! UserVoucher::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'That voucher has reached its usage limit.');
         abort_if(VoucherRedemption::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'You have already used this voucher.');
         abort_if($subtotal < (float) $voucher->min_spend, 422, 'Your cart does not meet the minimum spend for this voucher.');
     }

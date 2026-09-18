@@ -277,6 +277,14 @@ export default function ProductDetail({ product, similarProducts = [] }: Product
                                 <ArrowLeft size={22} />
                             </Link>
                             <span className="absolute left-1/2 -translate-x-1/2 text-lg font-bold text-[#173a29]">Product Details</span>
+                            <Link
+                                href={route('customer.cart')}
+                                aria-label="Open cart"
+                                title="Open cart"
+                                className="ml-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#1d2a27] shadow-sm ring-1 ring-[#e0eae1] transition hover:bg-[#eef7ee]"
+                            >
+                                <ShoppingCart size={21} />
+                            </Link>
                         </div>
 
                         <div className="rounded-3xl bg-[#e9f3e8] p-4 shadow-[0_12px_32px_rgba(33,72,46,0.06)] ring-1 ring-[#dfeee3] lg:p-5">

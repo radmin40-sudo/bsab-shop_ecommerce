@@ -8,6 +8,8 @@ use App\Http\Controllers\Auth\AdminRegistrationController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SellerProductController;
+use App\Http\Controllers\SellerShopController;
+use App\Http\Controllers\TestGeminiImageController;
 use App\Http\Controllers\VoucherController;
 use App\Models\Category;
 use App\Models\Order;
@@ -15,8 +17,55 @@ use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Models\Voucher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+$extractGeminiDiagnosticError = function (mixed $payload, int $status): string {
+    if (is_array($payload)) {
+        $message = data_get($payload, 'error.message');
+
+        if (is_string($message) && trim($message) !== '') {
+            return trim($message);
+        }
+
+        $errors = data_get($payload, 'error.errors');
+
+        if (is_array($errors)) {
+            foreach ($errors as $error) {
+                if (is_array($error) && isset($error['message']) && is_string($error['message']) && trim($error['message']) !== '') {
+                    return trim($error['message']);
+                }
+            }
+        }
+
+        $message = data_get($payload, 'message');
+
+        if (is_string($message) && trim($message) !== '') {
+            return trim($message);
+        }
+
+        $error = data_get($payload, 'error');
+
+        if (is_string($error) && trim($error) !== '') {
+            return trim($error);
+        }
+    }
+
+    if (is_string($payload) && trim($payload) !== '') {
+        return trim($payload);
+    }
+
+    return match ($status) {
+        400 => 'Invalid Gemini request.',
+        401 => 'API key not valid.',
+        403 => 'Gemini API access forbidden.',
+        404 => 'Gemini model unavailable or unsupported for this project.',
+        429 => 'Gemini API rate limit reached.',
+        500 => 'Gemini API server error.',
+        default => 'Gemini API request failed.',
+    };
+};
 
 $storefrontProps = fn (?int $userId = null) => [
     'siteSettings' => SiteSetting::homeSettings(),
@@ -53,6 +102,109 @@ Route::get('/', function (Request $request) use ($storefrontProps) {
 })->name('home');
 
 Route::get('/marketplace', fn () => Inertia::render('customer/marketplace', $storefrontProps()))->name('marketplace');
+
+Route::get('/test-gemini-image', [TestGeminiImageController::class, 'page'])->name('test.gemini.image.page');
+Route::post('/test-gemini-image', [TestGeminiImageController::class, 'test'])->name('test.gemini.image');
+
+Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
+    $apiKey = config('services.gemini.api_key');
+
+    if (blank($apiKey)) {
+        return response()->json([
+            'success' => false,
+            'error' => 'GEMINI_API_KEY is missing',
+        ], 500);
+    }
+
+    $models = ['gemini-3.6-flash'];
+    $lastResponse = null;
+
+    foreach ($models as $model) {
+        try {
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'x-goog-api-key' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                [
+                                    'text' => 'Reply with exactly: GEMINI TEST SUCCESS',
+                                ],
+                            ],
+                        ],
+                    ],
+                ]);
+
+            $status = $response->status();
+            $payload = $response->json();
+            $lastResponse = $payload;
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'http_status' => $status,
+                    'message' => 'Gemini API connection successful',
+                    'response' => $payload,
+                ]);
+            }
+
+            if ($status === 404) {
+                $lastResponse = $payload;
+                continue;
+            }
+
+            $errorMessage = $extractGeminiDiagnosticError($payload, $status);
+
+            return response()->json([
+                'success' => false,
+                'http_status' => $status,
+                'message' => 'Gemini API request failed',
+                'error' => $errorMessage,
+                'response' => $payload,
+            ], $status >= 400 ? $status : 500);
+        } catch (\Throwable $exception) {
+            $errorMessage = $exception->getMessage();
+
+            if (str_contains(strtolower($errorMessage), 'timeout')) {
+                return response()->json([
+                    'success' => false,
+                    'http_status' => 504,
+                    'message' => 'Gemini API request timed out',
+                    'error' => $errorMessage,
+                ], 504);
+            }
+
+            if (str_contains(strtolower($errorMessage), 'connection')) {
+                return response()->json([
+                    'success' => false,
+                    'http_status' => 503,
+                    'message' => 'Gemini API connection failed',
+                    'error' => $errorMessage,
+                ], 503);
+            }
+
+            return response()->json([
+                'success' => false,
+                'http_status' => 500,
+                'message' => 'Gemini API request failed',
+                'error' => $errorMessage,
+            ], 500);
+        }
+    }
+
+    $fallbackError = $extractGeminiDiagnosticError($lastResponse ?? null, 404);
+
+    return response()->json([
+        'success' => false,
+        'http_status' => 404,
+        'message' => 'Gemini API request failed',
+        'error' => $fallbackError,
+        'response' => $lastResponse,
+    ], 404);
+})->name('test.gemini');
 
 Route::get('/products/{product}', function (Product $product) {
     abort_unless($product->status === 'published' && $product->is_approved, 404);
@@ -173,11 +325,14 @@ Route::middleware(['auth', 'role:seller'])->prefix('seller')->group(function () 
     Route::get('/', fn () => Inertia::render('seller/dashboard'))->name('seller.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('seller.profile');
     Route::get('/products', [SellerProductController::class, 'index'])->name('seller.products');
+    Route::post('/products/ai-analyze', [\App\Http\Controllers\AI\ProductAIController::class, 'analyze'])->name('seller.products.ai-analyze');
     Route::post('/products', [SellerProductController::class, 'store'])->name('seller.products.store');
     Route::patch('/products/{product}', [SellerProductController::class, 'update'])->name('seller.products.update');
     Route::delete('/products/{product}', [SellerProductController::class, 'destroy'])->name('seller.products.destroy');
     Route::get('/orders', fn () => Inertia::render('seller/orders'))->name('seller.orders');
-    Route::get('/shop', fn () => Inertia::render('seller/shop'))->name('seller.shop');
+    Route::get('/shop', [SellerShopController::class, 'show'])->name('seller.shop');
+    Route::post('/shop', [SellerShopController::class, 'update'])->name('seller.shop.store');
+    Route::patch('/shop', [SellerShopController::class, 'update'])->name('seller.shop.update');
     Route::get('/vouchers', [VoucherController::class, 'index'])->name('seller.vouchers');
     Route::post('/vouchers', [VoucherController::class, 'store'])->name('seller.vouchers.store');
     Route::patch('/vouchers/{voucher}', [VoucherController::class, 'update'])->name('seller.vouchers.update');
@@ -244,7 +399,13 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
         ]);
     })->name('customer.vouchers');
     Route::get('/cart', fn () => Inertia::render('customer/cart'))->name('customer.cart');
+    Route::get('/checkout', function (Request $request) {
+        return Inertia::render('customer/checkout', [
+            'selectedItemIds' => collect($request->input('selected_item_ids', []))->map(fn ($id) => (int) $id)->values()->all(),
+        ]);
+    })->name('customer.checkout');
     Route::get('/orders', fn () => Inertia::render('customer/orders'))->name('customer.orders');
+    Route::get('/order-tracking', fn () => Inertia::render('customer/order-tracking'))->name('customer.order-tracking');
     Route::get('/orders/{order}', fn (Request $request, Order $order) => abort_unless($order->user_id === $request->user()->id, 403) ?: Inertia::render('customer/order-detail', ['orderId' => $order->id]))->name('customer.order');
 });
 

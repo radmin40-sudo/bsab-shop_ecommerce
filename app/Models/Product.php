@@ -105,4 +105,22 @@ class Product extends Model
     {
         return $this->hasOne(ProductMetric::class);
     }
+
+    public function getProductOptionsAttribute(): string
+    {
+        $options = $this->relationLoaded('options') ? $this->options : $this->options()->with('values')->get();
+
+        if ($options->isEmpty()) {
+            return '';
+        }
+
+        return $options
+            ->sortBy('sort_order')
+            ->map(function (ProductOption $option) {
+                $values = $option->relationLoaded('values') ? $option->values : $option->values()->orderBy('sort_order')->get();
+
+                return $option->name.': '.($values->sortBy('sort_order')->pluck('value')->all() ? implode(', ', $values->sortBy('sort_order')->pluck('value')->all()) : '');
+            })
+            ->implode("\n");
+    }
 }
