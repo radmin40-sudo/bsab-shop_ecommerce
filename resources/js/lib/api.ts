@@ -59,6 +59,7 @@ export async function checkoutCart(payload: {
     shipping_address: Record<string, string>;
     payment_method: string;
     voucher_code?: string;
+    selected_item_ids?: number[];
     gcash_receipt?: File | null;
 }) {
     await prepareSanctum();
@@ -69,6 +70,9 @@ export async function checkoutCart(payload: {
         formData.append('payment_method', payload.payment_method);
         if (payload.voucher_code) {
             formData.append('voucher_code', payload.voucher_code);
+        }
+        if (payload.selected_item_ids) {
+            formData.append('selected_item_ids', JSON.stringify(payload.selected_item_ids));
         }
         formData.append('gcash_receipt', payload.gcash_receipt);
 
@@ -84,4 +88,33 @@ export async function validateVoucher(code: string, subtotal: number) {
     await prepareSanctum();
     const response = await api.post('/customer/voucher/validate', { code, subtotal });
     return response.data as { code: string; discount: number };
+}
+
+export type CustomerVoucher = {
+    id: number;
+    code: string;
+    title: string;
+    description?: string | null;
+    type: string;
+    value: string | number;
+    min_spend: string | number;
+    max_discount?: string | number | null;
+    total_claim_limit?: number | null;
+    total_claimed?: number;
+    remaining_claims?: number | null;
+    expires_at?: string | null;
+    start_date?: string | null;
+    status: 'available' | 'claimed' | 'fully_claimed' | 'expired' | 'inactive' | 'not_started';
+    shop?: { id: number; name: string } | null;
+};
+
+export async function getCustomerVouchers(): Promise<{ vouchers: CustomerVoucher[]; claimed_vouchers: CustomerVoucher[] }> {
+    const response = await api.get('/customer/vouchers');
+    return response.data;
+}
+
+export async function claimVoucher(voucherId: number) {
+    await prepareSanctum();
+    const response = await api.post(`/customer/vouchers/${voucherId}/claim`);
+    return response.data;
 }

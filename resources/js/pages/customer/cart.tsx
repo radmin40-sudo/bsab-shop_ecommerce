@@ -510,7 +510,7 @@ export default function CustomerCart() {
 
                 {qrPreview && (
                     <div
-                        className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07130c]/80 p-4 backdrop-blur-sm"
+                        className="fixed inset-0 z-60 flex items-center justify-center bg-[#07130c]/80 p-4 backdrop-blur-sm"
                         role="dialog"
                         aria-modal="true"
                         aria-label={`${qrPreview.name} enlarged GCash QR code`}

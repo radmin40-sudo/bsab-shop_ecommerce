@@ -50,8 +50,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('voucher/validate', [CheckoutController::class, 'validateVoucher']);
         Route::get('vouchers', [VoucherClaimController::class, 'index']);
         Route::post('vouchers/{voucher}/claim', [VoucherClaimController::class, 'claim'])->middleware('throttle:10,1');
-        Route::get('vouchers', [VoucherClaimController::class, 'index']);
-        Route::post('vouchers/{voucher}/claim', [VoucherClaimController::class, 'claim'])->middleware('throttle:10,1');
         Route::post('checkout', [CheckoutController::class, 'store']);
         Route::get('orders', fn (Request $request) => $request->user()->orders()->with('items.product.images', 'items.shop')->latest()->paginate(20));
         Route::get('orders/{order}', fn (Request $request, Order $order) => abort_unless($order->user_id === $request->user()->id, 403) ?: $order->load('items.product.images', 'items.shop', 'payments'));
