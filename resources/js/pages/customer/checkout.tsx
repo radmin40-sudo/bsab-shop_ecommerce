@@ -1,5 +1,6 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { api, checkoutCart, currentUser, getCustomerVouchers, validateVoucher } from '@/lib/api';
+import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -50,7 +51,7 @@ function ProgressStepper({ step }: { step: CheckoutStep }) {
     const activeIndex = step === 'cart' ? 0 : step === 'shipping' ? 1 : step === 'payment' ? 2 : 3;
 
     return (
-        <div className="mx-auto mt-4 flex w-full max-w-[720px] items-center justify-between gap-2 overflow-hidden rounded-full border border-[#dfeee5] bg-white/80 px-3 py-2 shadow-[0_8px_30px_rgba(22,59,36,0.04)] sm:px-4">
+        <div className="mx-auto mt-4 flex w-full max-w-180 items-center justify-between gap-2 overflow-hidden rounded-full border border-[#dfeee5] bg-white/80 px-3 py-2 shadow-[0_8px_30px_rgba(22,59,36,0.04)] sm:px-4">
             {stepLabels.map((label, index) => {
                 const isComplete = index < activeIndex;
                 const isActive = index === activeIndex;
@@ -297,8 +298,8 @@ export default function CustomerCheckout() {
     const renderCurrentStep = () => {
         if (step === 'success') {
             return (
-                <div className="flex min-h-[420px] items-center justify-center">
-                    <div className="w-full max-w-[650px] rounded-[30px] border border-[#dfeee5] bg-white p-6 text-center shadow-[0_16px_42px_rgba(22,59,36,0.06)] sm:p-8">
+                <div className="flex min-h-105 items-center justify-center">
+                    <div className="w-full max-w-162.5 rounded-3xl border border-[#dfeee5] bg-white p-6 text-center shadow-[0_16px_42px_rgba(22,59,36,0.06)] sm:p-8">
                         <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[#eaf8ee] text-[#1f7a42] shadow-inner shadow-[#1f7a42]/15">
                             <Check size={42} strokeWidth={3} />
                         </div>
@@ -360,7 +361,7 @@ export default function CustomerCheckout() {
                             return (
                                 <div
                                     key={item.id}
-                                    className="flex items-center gap-3 rounded-[24px] border border-[#dfeee5] bg-white p-3 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-4"
+                                    className="flex items-center gap-3 rounded-3xl border border-[#dfeee5] bg-white p-3 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-4"
                                 >
                                     <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-[#eefaf1] sm:h-28 sm:w-28">
                                         {imgSrc ? (
@@ -468,7 +469,7 @@ export default function CustomerCheckout() {
                         </div>
 
                         {paymentMethod === 'gcash' ? (
-                            <div className="mt-5 rounded-[24px] border border-[#dfeee5] bg-[#f7faf7] p-4">
+                            <div className="mt-5 rounded-3xl border border-[#dfeee5] bg-[#f7faf7] p-4">
                                 <div className="mb-4 flex items-center gap-2 text-[#1f7a42]">
                                     <WalletCards size={18} />
                                     <div>
@@ -534,7 +535,10 @@ export default function CustomerCheckout() {
                                             type="file"
                                             accept="image/*"
                                             required
-                                            onChange={(event) => setGcashReceipt(event.target.files?.[0] || null)}
+                                            onChange={async (event) => {
+                                                const file = event.target.files?.[0];
+                                                setGcashReceipt(file ? await optimizeImage(file, { maxWidth: 1600, maxHeight: 1600 }) : null);
+                                            }}
                                             className="mt-1 block w-full rounded-xl border border-dashed border-[#b8d9c0] bg-white px-3 py-2.5 text-sm text-[#647568] file:mr-3 file:rounded-lg file:border-0 file:bg-[#1f7a42] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white"
                                         />
                                         <span className="mt-1 block text-xs font-normal text-[#647568]">
@@ -544,7 +548,7 @@ export default function CustomerCheckout() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="mt-5 rounded-[24px] border border-[#dfeee5] bg-[#f7faf7] p-4">
+                            <div className="mt-5 rounded-3xl border border-[#dfeee5] bg-[#f7faf7] p-4">
                                 <div className="flex items-center gap-3 text-[#163b24]">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#dff4e7] text-[#1f7a42]">
                                         <PackageCheck size={22} />
@@ -680,7 +684,7 @@ export default function CustomerCheckout() {
         <>
             <Head title="Checkout" />
             <PortalLayout role="customer" title="Checkout" eyebrow="Complete your order" hideHeader>
-                <div className="mx-auto max-w-[1200px] px-3 pt-1 pb-6 sm:px-5 lg:px-6 lg:pb-10">
+                <div className="mx-auto max-w-300 px-3 pt-1 pb-6 sm:px-5 lg:px-6 lg:pb-10">
                     <div className="rounded-[30px] border border-[#dfeee5] bg-[#f3faf5] p-3 shadow-[0_15px_42px_rgba(22,59,36,0.04)] sm:p-4 lg:p-5">
                         <div className="flex items-center gap-3 px-1 pb-2">
                             <Link
@@ -741,7 +745,7 @@ export default function CustomerCheckout() {
                             <img
                                 src={qrPreview.url}
                                 alt={`Large GCash QR code for ${qrPreview.shopName}`}
-                                className="mx-auto mt-5 aspect-square w-full max-w-[290px] rounded-2xl border border-[#dfeee5] object-contain p-3"
+                                className="mx-auto mt-5 aspect-square w-full max-w-72.5 rounded-2xl border border-[#dfeee5] object-contain p-3"
                             />
                             <button
                                 type="button"

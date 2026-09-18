@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Models\Voucher;
+use App\Services\ImageOptimizationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -175,12 +176,12 @@ class AdminSettingsController extends Controller
         return back()->with('success', 'All vouchers were deleted successfully.');
     }
 
-    public function saveHomeContent(Request $request): RedirectResponse
+    public function saveHomeContent(Request $request, ImageOptimizationService $images): RedirectResponse
     {
         $data = $request->validate([
             'brand_name' => ['nullable', 'string', 'max:255'],
-            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
-            'login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:'.config('images.max_upload_kb')],
+            'login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'hero_media' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg,mp4,webm,mov', 'max:20480'],
             'hero_title' => ['nullable', 'string', 'max:255'],
             'hero_highlight' => ['nullable', 'string', 'max:255'],
@@ -208,7 +209,7 @@ class AdminSettingsController extends Controller
                     if ($existingPath) {
                         Storage::disk('public')->delete($existingPath);
                     }
-                    $path = $request->file('logo')->store('site', 'public');
+                    $path = $images->store($request->file('logo'), 'site', ['max_dimension' => config('images.logo_max_dimension')]);
                     SiteSetting::updateOrCreate(['key' => 'logo_path'], ['value' => $path]);
                 }
 
@@ -222,7 +223,12 @@ class AdminSettingsController extends Controller
                         Storage::disk('public')->delete($existingPath);
                     }
                     $file = $request->file('hero_media');
-                    $path = $file->store('site', 'public');
+                    $path = str_starts_with((string) $file->getMimeType(), 'image/')
+                        ? $images->store($file, 'site', [
+                            'max_width' => config('images.banner_max_width'),
+                            'max_height' => config('images.banner_max_height'),
+                        ])
+                        : $file->store('site', 'public');
                     $type = str_starts_with((string) $file->getMimeType(), 'video/') ? 'video' : 'image';
                     SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => $path]);
                     SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => $type]);
@@ -237,7 +243,10 @@ class AdminSettingsController extends Controller
                     if ($existingPath) {
                         Storage::disk('public')->delete($existingPath);
                     }
-                    $path = $request->file('login_background')->store('site', 'public');
+                    $path = $images->store($request->file('login_background'), 'site', [
+                        'max_width' => config('images.banner_max_width'),
+                        'max_height' => config('images.banner_max_height'),
+                    ]);
                     SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => $path]);
                 }
 

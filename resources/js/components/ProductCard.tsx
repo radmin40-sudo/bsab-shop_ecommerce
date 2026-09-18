@@ -60,7 +60,7 @@ export default function ProductCard({ product, liked, onToggleFavorite, onOpenPr
         >
             {/* Image area */}
             <div className="card-media">
-                {image ? <img src={image} alt={product.name} className="h-full w-full object-cover" /> : <div className="ph">{initials}</div>}
+                {image ? <img src={image} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="ph">{initials}</div>}
 
                 {isSale && <span className="discount-tag">-{discountPct}%</span>}
 

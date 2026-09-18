@@ -1,5 +1,6 @@
 import { PortalLayout, StatCard } from '@/components/portal-layout';
 import { Head, useForm } from '@inertiajs/react';
+import { optimizeImage } from '@/lib/image-upload';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -180,7 +181,10 @@ export default function Categories({ categories }: { categories: Category[] }) {
                                     <input
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
-                                        onChange={(event) => form.setData('image', event.target.files?.[0] ?? null)}
+                                        onChange={async (event) => {
+                                            const file = event.target.files?.[0];
+                                            form.setData('image', file ? await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 }) : null);
+                                        }}
                                         className="min-w-0 text-sm font-normal"
                                     />
                                 </div>

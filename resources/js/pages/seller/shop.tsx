@@ -1,5 +1,6 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { prepareSanctum } from '@/lib/api';
+import { optimizeImage } from '@/lib/image-upload';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Check, CircleCheck, FileText, Image, Link2, PencilLine, ShieldCheck, Smartphone, Store, UserRound, WalletCards, X } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
@@ -404,7 +405,10 @@ export default function SellerShop() {
                                                 name="gcash_qr_code"
                                                 type="file"
                                                 accept="image/*"
-                                                onChange={(e) => setQrCode(e.target.files?.[0] || null)}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    setQrCode(file ? await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 }) : null);
+                                                }}
                                                 className="mt-2 block w-full text-sm text-[#163b24] file:mr-3 file:rounded-xl file:border-0 file:bg-[#1f7a42] file:px-3 file:py-2 file:text-sm file:font-bold file:text-white"
                                             />
                                             <p className="mt-2 text-xs text-[#657066]">Upload a QR code image for your GCash payment details.</p>

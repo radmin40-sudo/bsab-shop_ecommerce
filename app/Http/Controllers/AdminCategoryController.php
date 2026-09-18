@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,23 +20,25 @@ class AdminCategoryController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ImageOptimizationService $images): RedirectResponse
     {
         $data = $this->validated($request);
-        $data['image'] = $request->hasFile('image') ? $request->file('image')->store('categories', 'public') : null;
+        $data['image'] = $request->hasFile('image')
+            ? $images->store($request->file('image'), 'categories', ['max_dimension' => config('images.category_max_dimension')])
+            : null;
         Category::create($data);
 
         return to_route('admin.categories');
     }
 
-    public function update(Request $request, Category $category): RedirectResponse
+    public function update(Request $request, Category $category, ImageOptimizationService $images): RedirectResponse
     {
         $data = $this->validated($request, $category);
         if ($request->hasFile('image')) {
             if ($category->image) {
                 Storage::disk('public')->delete($category->image);
             }
-            $data['image'] = $request->file('image')->store('categories', 'public');
+            $data['image'] = $images->store($request->file('image'), 'categories', ['max_dimension' => config('images.category_max_dimension')]);
         }
         $category->update($data);
 
@@ -59,7 +62,7 @@ class AdminCategoryController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', Rule::unique('categories', 'slug')->ignore($category?->id)],
             'parent_id' => ['nullable', 'integer', Rule::exists('categories', 'id'), Rule::notIn([$category?->id])],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
         ]);
     }
 }

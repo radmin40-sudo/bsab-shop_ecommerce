@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react';
 
 import { PortalLayout } from '@/components/portal-layout';
 import { api, prepareSanctum } from '@/lib/api';
+import { optimizeImage } from '@/lib/image-upload';
 
 type Seller = {
     id: number;
@@ -87,8 +88,9 @@ export default function Sellers() {
     function updateField(field: keyof SellerForm, value: string) {
         setForm((current) => ({ ...current, [field]: value }));
     }
-    function updateAvatar(file: File | null) {
-        setForm((current) => ({ ...current, avatar: file }));
+    async function updateAvatar(file: File | null) {
+        const optimized = file ? await optimizeImage(file, { maxWidth: 800, maxHeight: 800 }) : null;
+        setForm((current) => ({ ...current, avatar: optimized }));
     }
     function submit(event: FormEvent) {
         event.preventDefault();

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Voucher;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,14 +39,14 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, ImageOptimizationService $images): RedirectResponse
     {
         $user = $request->user();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:50'],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'address' => ['nullable', 'array'],
             'address.full_name' => ['required_with:address', 'string', 'max:255'],
             'address.phone' => ['required_with:address', 'string', 'max:50'],
@@ -62,7 +63,9 @@ class ProfileController extends Controller
             if ($user->avatar) {
                 Storage::disk('public')->delete($user->avatar);
             }
-            $user->avatar = $request->file('avatar')->store('avatars', 'public');
+            $user->avatar = $images->store($request->file('avatar'), 'avatars', [
+                'max_dimension' => config('images.profile_max_dimension'),
+            ]);
         }
         $user->save();
         if (! empty($data['address'])) {

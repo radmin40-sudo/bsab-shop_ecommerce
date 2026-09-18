@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\ImageOptimizationService;
 use App\Services\ProductVariantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class SellerProductController extends Controller
         ]);
     }
 
-    public function store(Request $request, ProductVariantService $service): RedirectResponse
+    public function store(Request $request, ProductVariantService $service, ImageOptimizationService $images): RedirectResponse
     {
         $shop = $this->shopFor($request);
 
@@ -39,18 +40,18 @@ class SellerProductController extends Controller
         $data['barcode'] = $this->uniqueBarcode();
         $data['status'] = 'pending';
         $product = $shop->products()->create($data);
-        $this->storeImages($request, $product);
+        $this->storeImages($request, $product, $images);
         $this->storeVideo($request, $product);
         $service->syncFromOptionSpec($product, (string) $request->input('product_options', ''));
 
         return to_route('seller.products');
     }
 
-    public function update(Request $request, Product $product, ProductVariantService $service): RedirectResponse
+    public function update(Request $request, Product $product, ProductVariantService $service, ImageOptimizationService $images): RedirectResponse
     {
         $this->authorizeProduct($request, $product);
         $product->update($this->validated($request, $product, $service));
-        $this->storeImages($request, $product);
+        $this->storeImages($request, $product, $images);
         $this->storeVideo($request, $product);
         $service->syncFromOptionSpec($product, (string) $request->input('product_options', ''));
 
@@ -122,9 +123,9 @@ class SellerProductController extends Controller
                     }
                 },
             ],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'images' => ['nullable', 'array'],
-            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'product_video' => ['nullable', 'file', 'mimes:mp4,mov,webm,avi,m4v,3gp', 'max:10240'],
         ]);
     }
@@ -151,7 +152,7 @@ class SellerProductController extends Controller
         return $barcode;
     }
 
-    private function storeImages(Request $request, Product $product): void
+    private function storeImages(Request $request, Product $product, ImageOptimizationService $images): void
     {
         $files = [];
 
@@ -173,7 +174,7 @@ class SellerProductController extends Controller
 
         foreach ($files as $index => $file) {
             $product->images()->create([
-                'path' => $file->store('products', 'public'),
+                'path' => $images->store($file, 'products', ['max_dimension' => config('images.product_max_dimension')]),
                 'is_primary' => $index === 0,
                 'sort_order' => $index,
             ]);

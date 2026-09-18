@@ -5,6 +5,7 @@ import { FormEvent } from 'react';
 import InputError from '@/components/input-error';
 import { PortalLayout } from '@/components/portal-layout';
 import { type SharedData } from '@/types';
+import { optimizeImage } from '@/lib/image-upload';
 
 type SellerProfileData = SharedData & { avatarUrl?: string | null };
 
@@ -68,7 +69,7 @@ export default function SellerProfile() {
                             </div>
                             <div>
                                 <div className="mb-6 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff3d6] text-[#946a0c]"><Store size={19} /></div><div><h3 className="font-display text-xl font-bold">Seller profile image</h3><p className="text-sm text-[#8b8a96]">Use a recognizable image for your shop workspace.</p></div></div>
-                                <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#cdebcf] bg-[#f5fcf7] p-7 text-center transition hover:border-[#3fa34d]"><ImagePlus size={25} className="text-[#2c9350]" /><span className="text-sm font-semibold text-[#2c7a3b]">Choose profile image</span><span className="text-xs text-[#647568]">JPG, PNG, or WebP up to 2 MB.</span><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => profileForm.setData('avatar', event.target.files?.[0] ?? null)} /></label>
+                                <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#cdebcf] bg-[#f5fcf7] p-7 text-center transition hover:border-[#3fa34d]"><ImagePlus size={25} className="text-[#2c9350]" /><span className="text-sm font-semibold text-[#2c7a3b]">Choose profile image</span><span className="text-xs text-[#647568]">JPG, PNG, or WebP up to 2 MB.</span><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; profileForm.setData('avatar', file ? await optimizeImage(file, { maxWidth: 800, maxHeight: 800 }) : null); }} /></label>
                                 <InputError message={profileForm.errors.avatar} className="mt-2" />
                                 <div className="mt-6 flex items-start gap-3 border-t border-[#edf2ed] pt-5 text-sm text-[#647568]"><ShieldCheck size={18} className="shrink-0 text-[#2c9350]" />Seller access is enabled for this account.</div>
                             </div>

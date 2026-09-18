@@ -4,6 +4,7 @@ import { FormEvent } from 'react';
 
 import InputError from '@/components/input-error';
 import { PortalLayout } from '@/components/portal-layout';
+import { optimizeImage } from '@/lib/image-upload';
 import { type SharedData } from '@/types';
 
 type AdminProfileData = SharedData & { avatarUrl?: string | null };
@@ -131,7 +132,10 @@ export default function AdminProfile() {
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
                                         className="hidden"
-                                        onChange={(event) => setData('avatar', event.target.files?.[0] ?? null)}
+                                        onChange={async (event) => {
+                                            const file = event.target.files?.[0];
+                                            setData('avatar', file ? await optimizeImage(file, { maxWidth: 800, maxHeight: 800 }) : null);
+                                        }}
                                     />
                                 </label>
                                 <InputError message={errors.avatar} className="mt-2" />

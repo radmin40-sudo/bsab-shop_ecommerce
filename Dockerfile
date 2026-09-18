@@ -1,5 +1,5 @@
 # Build frontend assets with the repository's Node toolchain.
-FROM node:22-alpine3.22 AS frontend
+FROM node:22-alpine AS frontend
 
 WORKDIR /app
 

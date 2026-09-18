@@ -1,5 +1,6 @@
 import { PortalLayout, StatCard } from '@/components/portal-layout';
 import { Head, useForm } from '@inertiajs/react';
+import { optimizeImages } from '@/lib/image-upload';
 import { Eye, ImagePlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { FormEventHandler, Fragment, useMemo, useState } from 'react';
 
@@ -736,8 +737,9 @@ export default function SellerProducts({ products, categories }: { products: Pro
                                             type="file"
                                             accept="image/jpeg,image/png,image/webp"
                                             multiple
-                                            onChange={(event) => {
-                                                const incoming = Array.from(event.target.files ?? []);
+                                            onChange={async (event) => {
+                                                const selected = Array.from(event.target.files ?? []);
+                                                const incoming = await optimizeImages(selected, { maxWidth: 2000, maxHeight: 2000 });
                                                 if (!incoming.length) return;
 
                                                 const unsupported = incoming.find((file) => !isKnownImageMime(file));

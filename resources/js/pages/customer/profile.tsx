@@ -1,6 +1,7 @@
 import InputError from '@/components/input-error';
 import { PortalLayout } from '@/components/portal-layout';
 import { type SharedData } from '@/types';
+import { optimizeImage } from '@/lib/image-upload';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Check, ImagePlus, LocateFixed, MapPin, Phone, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -318,7 +319,10 @@ export default function CustomerProfile() {
                                     type="file"
                                     accept="image/jpeg,image/png,image/webp"
                                     className="hidden"
-                                    onChange={(event) => setData('avatar', event.target.files?.[0] ?? null)}
+                                    onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        setData('avatar', file ? await optimizeImage(file, { maxWidth: 800, maxHeight: 800 }) : null);
+                                    }}
                                 />
                             </label>
                             <InputError message={errors.avatar} />

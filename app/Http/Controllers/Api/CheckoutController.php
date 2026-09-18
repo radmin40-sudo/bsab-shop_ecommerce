@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Shop;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -25,7 +26,7 @@ class CheckoutController extends Controller
         return response()->json(['code' => $voucher->code, 'discount' => $this->voucherDiscount($voucher, (float) $data['subtotal'])]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, ImageOptimizationService $images)
     {
         $shippingAddress = $request->input('shipping_address');
 
@@ -45,12 +46,12 @@ class CheckoutController extends Controller
             'shipping_address.postal_code' => 'required|string|max:20',
             'payment_method' => 'required|string|in:cash_on_delivery,gcash',
             'voucher_code' => 'nullable|string|max:50',
-            'gcash_receipt' => ['nullable', 'required_if:payment_method,gcash', 'file', 'image', 'max:5120'],
+            'gcash_receipt' => ['nullable', 'required_if:payment_method,gcash', 'file', 'image', 'max:'.config('images.max_upload_kb')],
         ])->validate();
 
         $gcashReceiptPath = null;
         if ($request->hasFile('gcash_receipt')) {
-            $gcashReceiptPath = $request->file('gcash_receipt')->store('gcash-receipts', 'public');
+            $gcashReceiptPath = $images->store($request->file('gcash_receipt'), 'gcash-receipts', ['max_dimension' => config('images.promotion_max_dimension')]);
         }
 
         $order = DB::transaction(function () use ($request, $validated, $gcashReceiptPath) {

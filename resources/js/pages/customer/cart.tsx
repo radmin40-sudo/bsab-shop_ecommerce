@@ -1,5 +1,6 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { api, checkoutCart, currentUser, removeCartItem, updateCartItem, validateVoucher } from '@/lib/api';
+import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, BadgePercent, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
@@ -472,7 +473,10 @@ export default function CustomerCart() {
                                                 <input
                                                     type="file"
                                                     accept="image/*"
-                                                    onChange={(e) => setGcashReceipt(e.target.files?.[0] || null)}
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        setGcashReceipt(file ? await optimizeImage(file, { maxWidth: 1600, maxHeight: 1600 }) : null);
+                                                    }}
                                                     required
                                                     className="block w-full text-sm text-[#163b24] file:mr-3 file:rounded-xl file:border-0 file:bg-[#1f7a42] file:px-3 file:py-2 file:text-sm file:font-bold file:text-white"
                                                 />

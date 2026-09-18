@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Shop;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class SellerShopController extends Controller
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request, ImageOptimizationService $images)
     {
         $shop = $this->shopFor($request);
 
@@ -39,7 +40,7 @@ class SellerShopController extends Controller
             'gcash_enabled' => ['nullable', 'boolean'],
             'gcash_account_name' => ['nullable', 'string', 'max:255'],
             'gcash_mobile_number' => ['nullable', 'string', 'max:50'],
-            'gcash_qr_code' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'gcash_qr_code' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
         ]);
 
         $shop->fill([
@@ -56,7 +57,7 @@ class SellerShopController extends Controller
                 Storage::disk('public')->delete($shop->gcash_qr_code);
             }
 
-            $shop->gcash_qr_code = $request->file('gcash_qr_code')->store('gcash-qr', 'public');
+            $shop->gcash_qr_code = $images->store($request->file('gcash_qr_code'), 'gcash-qr', ['max_dimension' => config('images.logo_max_dimension')]);
         }
 
         if ($shop->gcash_enabled) {

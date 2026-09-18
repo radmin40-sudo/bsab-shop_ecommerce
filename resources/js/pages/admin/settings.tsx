@@ -18,6 +18,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
+import { optimizeImage } from '@/lib/image-upload';
 
 type SiteSettings = {
     brand_name?: string;
@@ -574,7 +575,10 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                 <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                    onChange={(event) => homeForm.setData('logo', event.target.files?.[0] ?? null)}
+                                    onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        homeForm.setData('logo', file ? await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 }) : null);
+                                    }}
                                     className="max-w-full text-sm"
                                 />
                             </div>
@@ -605,7 +609,10 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                 <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp"
-                                    onChange={(event) => homeForm.setData('login_background', event.target.files?.[0] ?? null)}
+                                    onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        homeForm.setData('login_background', file ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 }) : null);
+                                    }}
                                     className="max-w-full text-sm"
                                 />
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">
@@ -651,7 +658,15 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                 <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime"
-                                    onChange={(event) => homeForm.setData('hero_media', event.target.files?.[0] ?? null)}
+                                    onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        homeForm.setData(
+                                            'hero_media',
+                                            file?.type.startsWith('image/')
+                                                ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 })
+                                                : file ?? null,
+                                        );
+                                    }}
                                     className="max-w-full text-sm"
                                 />
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">
