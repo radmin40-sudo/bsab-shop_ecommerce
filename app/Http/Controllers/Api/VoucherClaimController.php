@@ -37,12 +37,14 @@ class VoucherClaimController extends Controller
 
             $claim = UserVoucher::create(['user_id' => $request->user()->id, 'voucher_id' => $lockedVoucher->id, 'claimed_at' => now(), 'status' => 'claimed']);
             $lockedVoucher->increment('total_claimed');
+
             return $claim;
         });
 
         $voucher->refresh();
         $limit = $voucher->total_claim_limit ?? $voucher->usage_limit;
         $claimed = $voucher->total_claimed ?? $voucher->times_used;
+
         return response()->json(['success' => true, 'message' => 'Voucher claimed successfully', 'voucher' => $this->present($voucher, $claim), 'remainingClaims' => $limit === null ? null : max(0, $limit - $claimed)], 201);
     }
 
@@ -50,15 +52,23 @@ class VoucherClaimController extends Controller
     {
         $limit = $voucher->total_claim_limit ?? $voucher->usage_limit;
         $claimed = $voucher->total_claimed ?? $voucher->times_used;
+
         return ['id' => $voucher->id, 'code' => $voucher->code, 'title' => $voucher->title ?: $this->discountLabel($voucher), 'description' => $voucher->description, 'type' => $voucher->type, 'value' => $voucher->value, 'min_spend' => $voucher->min_spend, 'max_discount' => $voucher->max_discount, 'total_claim_limit' => $limit, 'total_claimed' => $claimed, 'remaining_claims' => $limit === null ? null : max(0, $limit - $claimed), 'expires_at' => $voucher->expiration_date ?: $voucher->expires_at, 'start_date' => $voucher->start_date, 'status' => $claim ? 'claimed' : $this->state($voucher), 'shop' => $voucher->shop];
     }
 
     private function state(Voucher $voucher): string
     {
-        if ($voucher->status !== 'active') return 'inactive';
-        if ($voucher->start_date?->isFuture()) return 'not_started';
-        if (($voucher->expiration_date ?: $voucher->expires_at)?->isPast()) return 'expired';
+        if ($voucher->status !== 'active') {
+            return 'inactive';
+        }
+        if ($voucher->start_date?->isFuture()) {
+            return 'not_started';
+        }
+        if (($voucher->expiration_date ?: $voucher->expires_at)?->isPast()) {
+            return 'expired';
+        }
         $limit = $voucher->total_claim_limit ?? $voucher->usage_limit;
+
         return $limit !== null && ($voucher->total_claimed ?? $voucher->times_used) >= $limit ? 'fully_claimed' : 'available';
     }
 

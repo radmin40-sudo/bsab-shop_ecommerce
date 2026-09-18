@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
 use App\Models\ActivityLog;
+use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SiteSetting;
@@ -211,6 +211,7 @@ class AdminSettingsController extends Controller
                     $path = $request->file('logo')->store('site', 'public');
                     SiteSetting::updateOrCreate(['key' => 'logo_path'], ['value' => $path]);
                 }
+
                 continue;
             }
 
@@ -226,6 +227,7 @@ class AdminSettingsController extends Controller
                     SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => $path]);
                     SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => $type]);
                 }
+
                 continue;
             }
 
@@ -238,6 +240,7 @@ class AdminSettingsController extends Controller
                     $path = $request->file('login_background')->store('site', 'public');
                     SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => $path]);
                 }
+
                 continue;
             }
 

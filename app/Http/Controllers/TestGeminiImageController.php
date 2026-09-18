@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TestGeminiImageController extends Controller
@@ -43,7 +43,7 @@ class TestGeminiImageController extends Controller
 
             $image = $request->file('image');
 
-            if (! $image instanceof \Illuminate\Http\UploadedFile) {
+            if (! $image instanceof UploadedFile) {
                 return $this->renderResult(
                     $request,
                     [

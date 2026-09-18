@@ -74,15 +74,15 @@ class ProfileController extends Controller
             }
         }
 
-            if ($user->hasRole('admin')) {
-                return to_route('admin.profile');
-            }
+        if ($user->hasRole('admin')) {
+            return to_route('admin.profile');
+        }
 
-            if ($user->hasRole('seller')) {
-                return to_route('seller.profile');
-            }
+        if ($user->hasRole('seller')) {
+            return to_route('seller.profile');
+        }
 
-            return to_route('profile.edit');
+        return to_route('profile.edit');
     }
 
     public function destroy(Request $request): RedirectResponse

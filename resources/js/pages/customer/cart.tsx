@@ -15,6 +15,8 @@ type CartItem = {
         images?: { path: string; is_primary: boolean }[];
     };
 };
+type CartShop = NonNullable<NonNullable<CartItem['product']>['shop']>;
+type CartShopWithQr = Omit<CartShop, 'gcash_qr_code_url'> & { gcash_qr_code_url: string };
 type CartData = { items: CartItem[]; available_vouchers?: AvailableVoucher[] };
 type AddressForm = { full_name: string; phone: string; line1: string; city: string; province: string; postal_code: string };
 type UserAddress = AddressForm & { is_default: boolean };
@@ -30,6 +32,15 @@ type AvailableVoucher = {
 
 function formatPrice(n: number) {
     return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+        const response = (error as { response?: { data?: { message?: unknown } } }).response;
+        if (typeof response?.data?.message === 'string') return response.data.message;
+    }
+
+    return fallback;
 }
 
 export default function CustomerCart() {
@@ -67,6 +78,16 @@ export default function CustomerCart() {
 
     const subtotal = items.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
     const total = Math.max(0, subtotal - (appliedVoucher?.discount || 0));
+    const shopsWithQr = Array.from(
+        new Map<number, CartShopWithQr>(
+            items.flatMap((item) => {
+                const shop = item.product?.shop;
+                return shop?.gcash_qr_code_url
+                    ? [[shop.id, { ...shop, gcash_qr_code_url: shop.gcash_qr_code_url }] as [number, CartShopWithQr]]
+                    : [];
+            }),
+        ).values(),
+    );
 
     async function changeQuantity(item: CartItem, quantity: number) {
         if (quantity < 1) return;
@@ -116,9 +137,9 @@ export default function CustomerCart() {
         setNotice('');
         try {
             setAppliedVoucher(await validateVoucher(voucherCode.trim(), subtotal));
-        } catch (error: any) {
+        } catch (error: unknown) {
             setAppliedVoucher(null);
-            const message = error?.response?.data?.message || 'That voucher code is not valid.';
+            const message = apiErrorMessage(error, 'That voucher code is not valid.');
             if (message === 'You have already used this voucher.') setUsedVoucherCode(voucherCode.trim().toUpperCase());
             setNotice(message);
         } finally {
@@ -162,8 +183,8 @@ export default function CustomerCart() {
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
             router.visit('/customer/orders');
-        } catch (error: any) {
-            setNotice(error?.response?.data?.message || 'Checkout could not be completed.');
+        } catch (error: unknown) {
+            setNotice(apiErrorMessage(error, 'Checkout could not be completed.'));
             setCheckoutBusy(false);
         }
     }
@@ -171,7 +192,7 @@ export default function CustomerCart() {
     return (
         <>
             <Head title="Your cart" />
-            <PortalLayout role="customer" hideHeader>
+            <PortalLayout role="customer" title="Shopping cart" hideHeader>
                 {/* Page title */}
                 <div className="mb-7 flex items-center gap-3">
                     <Link
@@ -421,26 +442,26 @@ export default function CustomerCart() {
                                             <div className="space-y-2 rounded-xl border border-[#dfe3dc] bg-[#f9fbf9] p-3">
                                                 <div className="rounded-xl border border-[#dfe3dc] bg-white p-3">
                                                     <p className="text-xs font-bold tracking-wide text-[#647568] uppercase">Pay with GCash</p>
-                                                    <p className="mt-1 text-xs text-[#647568]">Scan the seller QR code, then upload your payment receipt.</p>
+                                                    <p className="mt-1 text-xs text-[#647568]">
+                                                        Scan the seller QR code, then upload your payment receipt.
+                                                    </p>
                                                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                                        {Array.from(
-                                                            new Map(
-                                                                items
-                                                                    .map((item) => item.product?.shop)
-                                                                    .filter((shop): shop is NonNullable<CartItem['product']>['shop'] => Boolean(shop?.gcash_qr_code_url))
-                                                                    .map((shop) => [shop.id, shop]),
-                                                            ).values(),
-                                                        ).map((shop) => (
-                                                            <div key={shop.id} className="rounded-xl border border-[#def0e2] bg-[#f8fbf8] p-3 text-center">
+                                                        {shopsWithQr.map((shop) => (
+                                                            <div
+                                                                key={shop.id}
+                                                                className="rounded-xl border border-[#def0e2] bg-[#f8fbf8] p-3 text-center"
+                                                            >
                                                                 <p className="mb-2 truncate text-xs font-semibold text-[#163b24]">{shop.name}</p>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setQrPreview({ name: shop.name, url: shop.gcash_qr_code_url || '' })}
+                                                                    onClick={() =>
+                                                                        setQrPreview({ name: shop.name, url: shop.gcash_qr_code_url })
+                                                                    }
                                                                     className="mx-auto block cursor-zoom-in rounded-lg bg-white p-2 transition hover:scale-[1.03] hover:shadow-md"
                                                                     aria-label={`Enlarge ${shop.name} GCash QR code`}
                                                                 >
-                                                                    <img
-                                                                        src={shop.gcash_qr_code_url || ''}
+                                                                        <img
+                                                                            src={shop.gcash_qr_code_url}
                                                                         alt={`${shop.name} GCash QR code`}
                                                                         className="h-36 w-36 rounded-lg object-contain"
                                                                     />
@@ -499,16 +520,23 @@ export default function CustomerCart() {
                         aria-label={`${qrPreview.name} enlarged GCash QR code`}
                         onClick={() => setQrPreview(null)}
                     >
-                        <div className="relative max-h-[92vh] max-w-[92vw] rounded-3xl bg-[#1268f4] p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                        <div
+                            className="relative max-h-[92vh] max-w-[92vw] rounded-3xl bg-[#1268f4] p-4 shadow-2xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
                             <button
                                 type="button"
                                 onClick={() => setQrPreview(null)}
-                                className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe3dc] bg-white text-[#163b24] shadow-lg transition hover:bg-[#edf7ed]"
+                                className="absolute -top-3 -right-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe3dc] bg-white text-[#163b24] shadow-lg transition hover:bg-[#edf7ed]"
                                 aria-label="Close enlarged QR code"
                             >
                                 <X size={19} />
                             </button>
-                            <img src={qrPreview.url} alt={`${qrPreview.name} enlarged GCash QR code`} className="max-h-[84vh] max-w-[84vw] rounded-2xl bg-white object-contain p-3" />
+                            <img
+                                src={qrPreview.url}
+                                alt={`${qrPreview.name} enlarged GCash QR code`}
+                                className="max-h-[84vh] max-w-[84vw] rounded-2xl bg-white object-contain p-3"
+                            />
                             <p className="mt-3 text-center text-sm font-semibold text-white">{qrPreview.name} GCash QR Code</p>
                         </div>
                     </div>

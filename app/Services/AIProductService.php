@@ -301,7 +301,7 @@ PROMPT;
         return $normalized;
     }
 
-    private function normalizeScalarValue(mixed $value): string|null
+    private function normalizeScalarValue(mixed $value): ?string
     {
         if (is_bool($value)) {
             return $value ? 'true' : 'false';

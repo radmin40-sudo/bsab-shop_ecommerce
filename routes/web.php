@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminCategoryController;
 use App\Http\Controllers\AdminProductController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AI\ProductAIController;
 use App\Http\Controllers\Auth\AdminRegistrationController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
@@ -153,6 +154,7 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
 
             if ($status === 404) {
                 $lastResponse = $payload;
+
                 continue;
             }
 
@@ -165,7 +167,7 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
                 'error' => $errorMessage,
                 'response' => $payload,
             ], $status >= 400 ? $status : 500);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $errorMessage = $exception->getMessage();
 
             if (str_contains(strtolower($errorMessage), 'timeout')) {
@@ -325,7 +327,7 @@ Route::middleware(['auth', 'role:seller'])->prefix('seller')->group(function () 
     Route::get('/', fn () => Inertia::render('seller/dashboard'))->name('seller.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('seller.profile');
     Route::get('/products', [SellerProductController::class, 'index'])->name('seller.products');
-    Route::post('/products/ai-analyze', [\App\Http\Controllers\AI\ProductAIController::class, 'analyze'])->name('seller.products.ai-analyze');
+    Route::post('/products/ai-analyze', [ProductAIController::class, 'analyze'])->name('seller.products.ai-analyze');
     Route::post('/products', [SellerProductController::class, 'store'])->name('seller.products.store');
     Route::patch('/products/{product}', [SellerProductController::class, 'update'])->name('seller.products.update');
     Route::delete('/products/{product}', [SellerProductController::class, 'destroy'])->name('seller.products.destroy');
