@@ -27,7 +27,10 @@ class AIProductService
 
         $lastError = null;
 
-        foreach (['gemini-3.6-flash'] as $model) {
+        foreach (array_unique([
+            config('services.gemini.model', 'gemini-2.5-flash'),
+            config('services.gemini.fallback_model', 'gemini-2.0-flash'),
+        ]) as $model) {
             try {
                 return $this->requestGeminiAnalysis($image, $model, $apiKey);
             } catch (\Throwable $exception) {
@@ -94,10 +97,6 @@ class AIProductService
 
     private function shouldRetryModel(\Throwable $exception, string $model): bool
     {
-        if ($model !== 'gemini-3.6-flash') {
-            return false;
-        }
-
         $message = strtolower($exception->getMessage());
 
         return str_contains($message, 'model')
