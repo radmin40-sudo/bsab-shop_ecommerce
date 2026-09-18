@@ -63,7 +63,14 @@ class ImageOptimizationService
         }
 
         $path = trim($directory, '/').'/'.Str::lower(Str::random(40)).'.webp';
-        Storage::disk('public')->put($path, file_get_contents($temporaryPath));
+        $contents = file_get_contents($temporaryPath);
+        if ($contents === false || $contents === '' || ! Storage::disk('public')->put($path, $contents) || ! Storage::disk('public')->exists($path)) {
+            @unlink($temporaryPath);
+            imagedestroy($source);
+            imagedestroy($canvas);
+
+            return $this->storeOriginal($file, $directory, $mime);
+        }
         @unlink($temporaryPath);
         imagedestroy($source);
         imagedestroy($canvas);
@@ -122,7 +129,10 @@ class ImageOptimizationService
             default => 'dat',
         };
         $path = trim($directory, '/').'/'.Str::lower(Str::random(40)).'.'.$extension;
-        Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
+        $contents = file_get_contents($file->getRealPath());
+        if ($contents === false || $contents === '' || ! Storage::disk('public')->put($path, $contents)) {
+            throw new RuntimeException('The uploaded image could not be saved.');
+        }
 
         return $path;
     }

@@ -3,19 +3,7 @@ import { api, checkoutCart, currentUser, getCustomerVouchers, validateVoucher } 
 import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
-import {
-    ArrowLeft,
-    ArrowRight,
-    Check,
-    Minus,
-    PackageCheck,
-    Plus,
-    ShieldCheck,
-    ShoppingBag,
-    Trash2,
-    WalletCards,
-    X,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Minus, PackageCheck, Plus, ShieldCheck, ShoppingBag, Trash2, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 type CheckoutStep = 'cart' | 'shipping' | 'payment' | 'review' | 'success';
@@ -428,7 +416,6 @@ export default function CustomerCheckout() {
                             </p>
                         </div>
                     </div>
-
                 </div>
             );
         }
@@ -704,9 +691,7 @@ export default function CustomerCheckout() {
                         {notice && <div className="mt-4 rounded-2xl bg-[#fbeaea] px-4 py-3 text-sm font-semibold text-[#b3413a]">{notice}</div>}
 
                         <div className="mt-5 grid gap-6 lg:grid-cols-[1.55fr_0.95fr]">
-                            <div className="rounded-[28px] border border-[#dfeee5] bg-[#f9fefb] p-3 sm:p-4 lg:p-5">
-                                {renderCurrentStep()}
-                            </div>
+                            <div className="rounded-[28px] border border-[#dfeee5] bg-[#f9fefb] p-3 sm:p-4 lg:p-5">{renderCurrentStep()}</div>
 
                             <div className="block">
                                 <OrderSummary

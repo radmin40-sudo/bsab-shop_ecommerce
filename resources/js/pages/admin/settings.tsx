@@ -1,3 +1,4 @@
+import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, useForm } from '@inertiajs/react';
 import {
     Check,
@@ -18,7 +19,6 @@ import {
     Zap,
 } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
-import { optimizeImage } from '@/lib/image-upload';
 
 type SiteSettings = {
     brand_name?: string;
@@ -611,7 +611,10 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                     accept="image/png,image/jpeg,image/webp"
                                     onChange={async (event) => {
                                         const file = event.target.files?.[0];
-                                        homeForm.setData('login_background', file ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 }) : null);
+                                        homeForm.setData(
+                                            'login_background',
+                                            file ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 }) : null,
+                                        );
                                     }}
                                     className="max-w-full text-sm"
                                 />
@@ -664,7 +667,7 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                             'hero_media',
                                             file?.type.startsWith('image/')
                                                 ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 })
-                                                : file ?? null,
+                                                : (file ?? null),
                                         );
                                     }}
                                     className="max-w-full text-sm"

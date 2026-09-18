@@ -162,7 +162,9 @@ export default function SellerShop() {
                     <div className="grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
                         <div className="rounded-3xl border border-[#dfe3dc] bg-white px-6 py-3 shadow-[0_10px_22px_rgba(22,59,36,0.04)]">
                             <div className="flex items-center gap-4 border-b border-[#edf2ed] py-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]"><Store size={24} /></span>
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]">
+                                    <Store size={24} />
+                                </span>
                                 <div>
                                     <p className="text-xs font-bold tracking-wide text-[#71809b] uppercase">Shop name</p>
                                     <p className="mt-1 text-lg font-semibold text-[#163b24]">{shop.name}</p>
@@ -170,7 +172,9 @@ export default function SellerShop() {
                             </div>
 
                             <div className="flex items-center gap-4 border-b border-[#edf2ed] py-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]"><Link2 size={24} /></span>
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]">
+                                    <Link2 size={24} />
+                                </span>
                                 <div>
                                     <p className="text-xs font-bold tracking-wide text-[#71809b] uppercase">Shop slug</p>
                                     <p className="mt-1 text-base text-[#163b24]">{shop.slug}</p>
@@ -178,23 +182,33 @@ export default function SellerShop() {
                             </div>
 
                             <div className="flex items-start gap-4 border-b border-[#edf2ed] py-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]"><FileText size={23} /></span>
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]">
+                                    <FileText size={23} />
+                                </span>
                                 <div>
                                     <p className="text-xs font-bold tracking-wide text-[#71809b] uppercase">Description</p>
-                                    <p className="mt-1 text-base leading-6 whitespace-pre-line text-[#163b24]">{shop.description || 'No description added yet.'}</p>
+                                    <p className="mt-1 text-base leading-6 whitespace-pre-line text-[#163b24]">
+                                        {shop.description || 'No description added yet.'}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="grid gap-4 border-b border-[#edf2ed] py-4 sm:grid-cols-2">
                                 <div className="flex items-center gap-3 border-r border-[#edf2ed] sm:pr-4">
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]"><CircleCheck size={22} /></span>
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]">
+                                        <CircleCheck size={22} />
+                                    </span>
                                     <div>
                                         <p className="text-[10px] font-bold tracking-wide text-[#71809b] uppercase">GCash status</p>
-                                        <p className="mt-1 inline-flex rounded-full bg-[#e4f4e4] px-3 py-1 text-sm font-semibold text-[#237a3d]">{shop.gcash_enabled ? 'Enabled' : 'Disabled'}</p>
+                                        <p className="mt-1 inline-flex rounded-full bg-[#e4f4e4] px-3 py-1 text-sm font-semibold text-[#237a3d]">
+                                            {shop.gcash_enabled ? 'Enabled' : 'Disabled'}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]"><UserRound size={22} /></span>
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e8f5e8] text-[#1f7a42]">
+                                        <UserRound size={22} />
+                                    </span>
                                     <div>
                                         <p className="text-[10px] font-bold tracking-wide text-[#71809b] uppercase">GCash account</p>
                                         <p className="mt-1 text-sm font-semibold text-[#163b24]">{shop.gcash_account_name || 'Not set'}</p>
@@ -203,7 +217,9 @@ export default function SellerShop() {
                             </div>
 
                             <div className="my-3 flex items-center gap-3 rounded-xl bg-[#eff8ef] px-3 py-3">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e1f2e2] text-[#1f7a42]"><Smartphone size={21} /></span>
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e1f2e2] text-[#1f7a42]">
+                                    <Smartphone size={21} />
+                                </span>
                                 <div>
                                     <p className="text-[10px] font-bold tracking-wide text-[#71809b] uppercase">GCash mobile</p>
                                     <p className="mt-1 text-base font-semibold text-[#163b24]">{shop.gcash_mobile_number || 'Not set'}</p>
@@ -214,7 +230,9 @@ export default function SellerShop() {
                         <div className="rounded-3xl border border-[#dfe3dc] bg-white p-5 shadow-[0_10px_22px_rgba(22,59,36,0.04)]">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-2xl font-bold tracking-tight text-[#1478f2]">G<span className="text-[#2f67f0]">Cash</span></span>
+                                    <span className="text-2xl font-bold tracking-tight text-[#1478f2]">
+                                        G<span className="text-[#2f67f0]">Cash</span>
+                                    </span>
                                     <h3 className="text-xl font-semibold text-[#163b24]">GCash QR Code</h3>
                                 </div>
 
@@ -238,7 +256,11 @@ export default function SellerShop() {
                                                 className="cursor-zoom-in rounded-xl bg-[#1268f4] p-4 shadow-[0_12px_20px_rgba(18,104,244,0.22)] transition hover:scale-[1.02] hover:shadow-[0_16px_26px_rgba(18,104,244,0.3)]"
                                                 aria-label="Enlarge GCash QR code"
                                             >
-                                                <img src={shop.gcash_qr_code} alt="GCash QR code" className="h-44 w-44 rounded-lg bg-white object-contain p-2" />
+                                                <img
+                                                    src={shop.gcash_qr_code}
+                                                    alt="GCash QR code"
+                                                    className="h-44 w-44 rounded-lg bg-white object-contain p-2"
+                                                />
                                             </button>
                                         ) : (
                                             <div className="flex h-44 w-44 items-center justify-center rounded-xl border border-dashed border-[#c9d5c7] bg-[#f8faf8] text-center text-xs text-[#657066]">
@@ -247,7 +269,9 @@ export default function SellerShop() {
                                         )}
                                     </div>
 
-                                    <div className="mt-4 flex items-center justify-center gap-2 text-2xl font-bold text-[#1478f2]"><WalletCards size={25} /> GCash</div>
+                                    <div className="mt-4 flex items-center justify-center gap-2 text-2xl font-bold text-[#1478f2]">
+                                        <WalletCards size={25} /> GCash
+                                    </div>
                                     <p className="mt-1 text-center text-sm text-[#657066]">Pay with GCash</p>
 
                                     <div className="mt-5 grid grid-cols-3 gap-2 text-center text-[10px] font-bold tracking-[0.14em] text-[#657066] uppercase">
@@ -273,8 +297,8 @@ export default function SellerShop() {
                         </div>
 
                         <div className="text-right">
-                            <p className="font-serif text-3xl italic text-[#1f7a42] leading-none">Shop Fresh</p>
-                            <p className="font-serif text-3xl italic text-[#1f7a42] leading-none">Shop Local</p>
+                            <p className="font-serif text-3xl leading-none text-[#1f7a42] italic">Shop Fresh</p>
+                            <p className="font-serif text-3xl leading-none text-[#1f7a42] italic">Shop Local</p>
                         </div>
                     </section>
                 </div>
@@ -287,16 +311,23 @@ export default function SellerShop() {
                         aria-label="Enlarged GCash QR code"
                         onClick={() => setIsQrPreviewOpen(false)}
                     >
-                        <div className="relative max-h-[92vh] max-w-[92vw] rounded-3xl bg-[#1268f4] p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                        <div
+                            className="relative max-h-[92vh] max-w-[92vw] rounded-3xl bg-[#1268f4] p-4 shadow-2xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
                             <button
                                 type="button"
                                 onClick={() => setIsQrPreviewOpen(false)}
-                                className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe3dc] bg-white text-[#163b24] shadow-lg transition hover:bg-[#edf7ed]"
+                                className="absolute -top-3 -right-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#dfe3dc] bg-white text-[#163b24] shadow-lg transition hover:bg-[#edf7ed]"
                                 aria-label="Close enlarged QR code"
                             >
                                 <X size={19} />
                             </button>
-                            <img src={shop.gcash_qr_code} alt="Enlarged GCash QR code" className="max-h-[84vh] max-w-[84vw] rounded-2xl bg-white object-contain p-3" />
+                            <img
+                                src={shop.gcash_qr_code}
+                                alt="Enlarged GCash QR code"
+                                className="max-h-[84vh] max-w-[84vw] rounded-2xl bg-white object-contain p-3"
+                            />
                             <p className="mt-3 text-center text-sm font-semibold text-white">GCash QR Code</p>
                         </div>
                     </div>
