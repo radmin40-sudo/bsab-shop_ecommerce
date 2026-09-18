@@ -37,14 +37,21 @@ RUN composer install \
     --prefer-dist \
     --no-scripts
 
-COPY . .
+COPY app ./app
+COPY bootstrap ./bootstrap
+COPY config ./config
+COPY database ./database
+COPY public ./public
+COPY resources/views ./resources/views
+COPY routes ./routes
+COPY artisan .
 COPY --from=frontend /app/public/build ./public/build
 COPY docker/entrypoint.sh /usr/local/bin/bsabshop-entrypoint
 COPY docker/Caddyfile /etc/caddy/Caddyfile
 
 RUN chmod +x /usr/local/bin/bsabshop-entrypoint \
     && composer dump-autoload --no-dev --optimize \
-    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
+    && mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
 
 ENV APP_ENV=production
