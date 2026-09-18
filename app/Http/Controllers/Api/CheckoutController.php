@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Shop;
-use App\Models\UserVoucher;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
 use Illuminate\Http\Request;
@@ -46,8 +45,6 @@ class CheckoutController extends Controller
             'shipping_address.postal_code' => 'required|string|max:20',
             'payment_method' => 'required|string|in:cash_on_delivery,gcash',
             'voucher_code' => 'nullable|string|max:50',
-            'selected_item_ids' => 'required|array|min:1',
-            'selected_item_ids.*' => 'integer',
             'gcash_receipt' => ['nullable', 'required_if:payment_method,gcash', 'file', 'image', 'max:5120'],
         ])->validate();
 
@@ -58,9 +55,7 @@ class CheckoutController extends Controller
 
         $order = DB::transaction(function () use ($request, $validated, $gcashReceiptPath) {
             $cart = Cart::with('items.product.shop', 'items.variant')->where('user_id', $request->user()->id)->firstOrFail();
-            $selectedItemIds = collect($validated['selected_item_ids'])->map(fn ($id) => (int) $id)->unique()->values();
-            $cart->setRelation('items', $cart->items->whereIn('id', $selectedItemIds)->values());
-            abort_if($cart->items->isEmpty(), 422, 'Select at least one product to checkout.');
+            abort_if($cart->items->isEmpty(), 422, 'Your cart is empty.');
 
             if ($validated['payment_method'] === 'gcash') {
                 $shopIds = $cart->items->pluck('product.shop_id')->filter()->unique()->values();
@@ -153,14 +148,8 @@ class CheckoutController extends Controller
 
     private function ensureVoucherAvailable(Voucher $voucher, float $subtotal, int $userId): void
     {
-        abort_unless(UserVoucher::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'Claim this voucher before applying it.');
-        abort_if($voucher->status !== 'active', 422, 'That voucher is currently unavailable.');
-        abort_if($voucher->start_date && $voucher->start_date->isFuture(), 422, 'That voucher is not available yet.');
-        abort_if(($voucher->expiration_date ?: $voucher->expires_at)?->isPast(), 422, 'That voucher has expired.');
         abort_if($voucher->expires_at && $voucher->expires_at->isPast(), 422, 'That voucher has expired.');
-        $limit = $voucher->total_claim_limit ?? $voucher->usage_limit;
-        $claimed = $voucher->total_claimed ?? $voucher->times_used;
-        abort_if($limit !== null && $claimed >= $limit && ! UserVoucher::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'That voucher has reached its usage limit.');
+        abort_if($voucher->usage_limit !== null && $voucher->times_used >= $voucher->usage_limit, 422, 'That voucher has reached its usage limit.');
         abort_if(VoucherRedemption::where('voucher_id', $voucher->id)->where('user_id', $userId)->exists(), 422, 'You have already used this voucher.');
         abort_if($subtotal < (float) $voucher->min_spend, 422, 'Your cart does not meet the minimum spend for this voucher.');
     }
