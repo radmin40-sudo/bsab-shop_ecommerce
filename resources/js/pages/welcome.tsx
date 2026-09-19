@@ -32,6 +32,8 @@ type Product = {
     base_price: string;
     sale_price?: string;
     stock_quantity: number;
+    selling_unit?: string | null;
+    reviews_count?: number;
     status: string;
     is_approved: boolean;
     category?: { name: string; slug: string };
@@ -599,7 +601,7 @@ export default function Welcome({
                             </button>
                         </div>
                     )}
-                    <div className="order-4 grid grid-cols-2 gap-3 rounded-b-2xl border border-t-0 border-[#e3eee6] bg-white px-4 pb-5 sm:grid-cols-3 sm:gap-4 sm:px-5 lg:grid-cols-6">
+                    <div className="order-4 grid grid-cols-2 gap-3 rounded-b-2xl border border-t-0 border-[#e3eee6] bg-white px-4 pb-5 sm:grid-cols-3 sm:gap-4 sm:px-5 lg:grid-cols-5">
                         {productFeed.map((product) => {
                             const price = product.sale_price ?? product.base_price;
                             const image = product.images?.[0]?.path;
@@ -617,12 +619,12 @@ export default function Welcome({
                                     tabIndex={0}
                                     className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-[#e4ece5] bg-white shadow-[0_3px_12px_rgba(22,59,36,0.05)] transition hover:-translate-y-1 hover:shadow-lg"
                                 >
-                                    <div className="relative flex aspect-square items-center justify-center bg-[#f1f5f1] p-2">
+                                    <div className="relative flex aspect-square items-center justify-center bg-[#f1f5f1]">
                                         {image ? (
                                             <img
                                                 src={image.startsWith('http') || image.startsWith('/') ? image : `/storage/${image}`}
                                                 alt={product.name}
-                                                className="h-full w-full object-contain"
+                                                className="h-full w-full object-cover"
                                             />
                                         ) : (
                                             <Package size={58} strokeWidth={1.2} className="text-[#2c9350]" />
@@ -649,13 +651,15 @@ export default function Welcome({
                                             {product.category?.name ?? 'Marketplace'}
                                         </span>
                                         <h3 className="mt-1 line-clamp-2 text-xs font-semibold">{product.name}</h3>
-                                        <p className="mt-1 truncate text-[10px] text-[#647568]">{product.shop?.name ?? 'BSABShop seller'}</p>
                                         <div className="mt-2 flex items-center gap-1 text-[10px] text-[#5c6e63]">
-                                            <Star size={12} fill="#2c9350" className="text-[#2c9350]" /> New listing
+                                            <Star size={12} fill="#f3b33d" className="text-[#f3b33d]" />
+                                            <span>4.8</span>
+                                            <span className="text-[#91a197]">({product.reviews_count ?? 0})</span>
                                         </div>
                                         <div className="mt-auto pt-3">
                                             <div className="font-display mb-2 text-sm font-bold text-[#16804a]">
-                                                ₱{Number(price).toLocaleString()}
+                                                ₱{Number(price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                <span className="ml-1 text-[10px] font-medium text-[#789184]">/{product.selling_unit || 'pc'}</span>
                                             </div>
                                         </div>
                                     </div>

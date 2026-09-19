@@ -75,6 +75,7 @@ $storefrontProps = fn (?int $userId = null) => [
     'categories' => Category::query()->withCount('products')->orderBy('name')->get(['id', 'name', 'slug', 'image']),
     'products' => Product::published()
         ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])
+        ->withCount('reviews')
         ->latest()
         ->limit(20)
         ->get(),
