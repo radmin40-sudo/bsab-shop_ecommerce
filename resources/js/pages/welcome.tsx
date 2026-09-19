@@ -538,34 +538,6 @@ export default function Welcome({
                             </button>
                         </div>
                     </div>
-                    <div className="order-3 flex flex-wrap items-center gap-2 px-4 pb-3 sm:hidden">
-                        <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-[#dfeae2] bg-white px-2.5 py-2 text-[10px] font-semibold text-[#5d7768]">
-                            <SlidersHorizontal size={13} />
-                            <span>Sort</span>
-                            <select
-                                value={sortOption}
-                                onChange={(event) => setSortOption(event.target.value as SortOption)}
-                                className="min-w-0 flex-1 bg-transparent text-[10px] font-bold text-[#184c35] outline-none"
-                                aria-label="Sort products"
-                            >
-                                <option value="popular">Most Popular</option>
-                                <option value="newest">Newest</option>
-                                <option value="price-low">Price: Low to High</option>
-                                <option value="price-high">Price: High to Low</option>
-                            </select>
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => setFilterOpen((open) => !open)}
-                            className={`flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-[10px] font-semibold ${filterOpen || inStockOnly || saleOnly ? 'border-[#23834b] text-[#1f7a42]' : 'border-[#dfeae2] text-[#5d7768]'}`}
-                            aria-expanded={filterOpen}
-                        >
-                            <SlidersHorizontal size={13} /> Filter
-                            {(inStockOnly || saleOnly) && (
-                                <span className="rounded-full bg-[#23834b] px-1.5 text-white">{Number(inStockOnly) + Number(saleOnly)}</span>
-                            )}
-                        </button>
-                    </div>
                     {filterOpen && (
                         <div className="order-3 mx-4 mb-3 rounded-xl border border-[#dfeae2] bg-[#fbfdfb] p-3 text-xs shadow-sm sm:hidden">
                             <p className="mb-2 font-bold text-[#184c35]">Filter products</p>
