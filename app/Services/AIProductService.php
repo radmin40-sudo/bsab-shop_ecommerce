@@ -27,10 +27,16 @@ class AIProductService
 
         $lastError = null;
 
-        foreach (array_unique([
-            config('services.gemini.model', 'gemini-2.5-flash'),
-            config('services.gemini.fallback_model', 'gemini-2.0-flash'),
-        ]) as $model) {
+        $models = array_unique(array_filter([
+            config('services.gemini.model'),
+            config('services.gemini.fallback_model'),
+            'gemini-flash-latest',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-2.0-flash',
+        ]));
+
+        foreach ($models as $model) {
             try {
                 return $this->requestGeminiAnalysis($image, $model, $apiKey);
             } catch (\Throwable $exception) {
