@@ -1,4 +1,5 @@
 import { PortalLayout, StatCard } from '@/components/portal-layout';
+import { prepareSanctum } from '@/lib/api';
 import { optimizeImages } from '@/lib/image-upload';
 import { Head, useForm } from '@inertiajs/react';
 import { Eye, ImagePlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -280,7 +281,7 @@ export default function SellerProducts({ products, categories }: { products: Pro
         form.setData('image', file);
         form.setData('images', files);
     };
-    const submit: FormEventHandler = (event) => {
+    const submit: FormEventHandler = async (event) => {
         event.preventDefault();
         if (!editing && !form.data.product_options.trim()) {
             form.setError('product_options', 'Add at least one product variant option, for example: Crop: Tomato, Lettuce.');
@@ -289,6 +290,7 @@ export default function SellerProducts({ products, categories }: { products: Pro
 
         const options = { preserveScroll: true, forceFormData: true, onSuccess: close };
         form.transform((data) => (editing ? { ...data, _method: 'patch' } : data));
+        await prepareSanctum();
         form.post(editing ? route('seller.products.update', editing.id) : route('seller.products.store'), options);
     };
     const applyCurrentCrop = async (auto = false) => {
