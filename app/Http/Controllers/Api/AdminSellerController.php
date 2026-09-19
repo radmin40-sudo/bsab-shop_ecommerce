@@ -25,7 +25,7 @@ class AdminSellerController extends Controller
             $avatar = $request->hasFile('avatar')
                 ? $images->store($request->file('avatar'), 'avatars', ['max_dimension' => config('images.profile_max_dimension')])
                 : null;
-            $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null, 'avatar' => $avatar, 'password' => Hash::make($data['password'] ?? Str::password(16)), 'must_change_password' => ! isset($data['password'])]);
+            $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'role' => 'seller', 'phone' => $data['phone'] ?? null, 'avatar' => $avatar, 'password' => Hash::make($data['password'] ?? Str::password(16)), 'must_change_password' => ! isset($data['password'])]);
             $user->assignRole('seller');
             $user->shop()->create(['created_by' => $request->user()->id, 'name' => $data['shop_name'], 'slug' => Str::slug($data['shop_name']).'-'.Str::lower(Str::random(5)), 'commission_rate' => $data['commission_rate'] ?? 10]);
 
