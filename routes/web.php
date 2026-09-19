@@ -73,9 +73,7 @@ $extractGeminiDiagnosticError = function (mixed $payload, int $status): string {
 $storefrontProps = fn (?int $userId = null) => [
     'siteSettings' => SiteSetting::homeSettings(),
     'categories' => Category::query()->withCount('products')->orderBy('name')->get(['id', 'name', 'slug', 'image']),
-    'products' => Product::query()
-        ->where('status', 'published')
-        ->where('is_approved', true)
+    'products' => Product::published()
         ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])
         ->latest()
         ->limit(20)
@@ -215,11 +213,9 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
 })->name('test.gemini');
 
 Route::get('/products/{product}', function (Product $product) {
-    abort_unless($product->status === 'published' && $product->is_approved, 404);
+    abort_unless($product->status === 'published', 404);
 
-    $similarProducts = Product::query()
-        ->where('status', 'published')
-        ->where('is_approved', true)
+    $similarProducts = Product::published()
         ->where('id', '!=', $product->id)
         ->where(function ($query) use ($product) {
             $query->where('category_id', $product->category_id)
@@ -254,10 +250,8 @@ Route::get('/search', function (Request $request) {
 
     return Inertia::render('customer/search', [
         'query' => $query,
-        'products' => empty($terms) ? collect() : Product::query()
+        'products' => empty($terms) ? collect() : Product::published()
             ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($imageQuery) => $imageQuery->where('is_primary', true)->limit(1)])
-            ->where('status', 'published')
-            ->where('is_approved', true)
             ->where(function ($productQuery) use ($terms) {
                 foreach ($terms as $term) {
                     $productQuery->where(function ($termQuery) use ($term) {
@@ -372,10 +366,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
                 'slug' => $categoryModel->slug,
                 'image' => $categoryModel->image,
             ],
-            'products' => Product::query()
+            'products' => Product::published()
                 ->where('category_id', $categoryModel->id)
-                ->where('status', 'published')
-                ->where('is_approved', true)
                 ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($imageQuery) => $imageQuery->where('is_primary', true)->limit(1)])
                 ->latest()
                 ->get(),

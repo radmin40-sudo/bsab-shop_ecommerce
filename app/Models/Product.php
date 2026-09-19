@@ -9,6 +9,11 @@ class Product extends Model
 {
     use SoftDeletes;
 
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published');
+    }
+
     protected $fillable = [
         'shop_id',
         'seller_id',
