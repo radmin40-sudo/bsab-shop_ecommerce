@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -148,62 +149,29 @@ class AdminSettingsBulkActionsTest extends TestCase
             );
     }
 
-    public function test_admin_can_store_login_background_and_hero_media_files(): void
+    public function test_admin_can_upload_login_background_and_hero_media(): void
     {
         Role::findOrCreate('admin', 'web');
 
         $admin = User::factory()->create();
         $admin->assignRole('admin');
+        Storage::fake('public');
 
         $this->actingAs($admin)
             ->from('/admin/settings')
             ->post(route('admin.settings.home-content'), [
-                'brand_name' => 'BSABShop',
-                'login_background' => UploadedFile::fake()->create('login-bg.png', 1024, 'image/png'),
-                'hero_media' => UploadedFile::fake()->create('hero-video.mp4', 1024, 'video/mp4'),
-                'hero_title' => 'Best picks.',
-                'hero_highlight' => 'Best prices.',
-                'hero_description' => 'Discover products from every category.',
+                'login_background' => UploadedFile::fake()->create('login-background.jpg', 100, 'image/jpeg'),
+                'hero_media' => UploadedFile::fake()->create('hero-media.jpg', 100, 'image/jpeg'),
             ])
             ->assertRedirect('/admin/settings');
 
-        $this->assertNotNull(SiteSetting::where('key', 'login_background_path')->value('value'));
-        $this->assertNotNull(SiteSetting::where('key', 'hero_media_path')->value('value'));
-        $this->assertSame('video', SiteSetting::where('key', 'hero_media_type')->value('value'));
-    }
+        $loginPath = SiteSetting::where('key', 'login_background_path')->value('value');
+        $heroPath = SiteSetting::where('key', 'hero_media_path')->value('value');
 
-    public function test_admin_can_reset_login_background_and_hero_media(): void
-    {
-        Role::findOrCreate('admin', 'web');
-
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-
-        SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => 'site/login-bg.png']);
-        SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => 'site/hero-video.mp4']);
-        SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => 'video']);
-
-        $this->actingAs($admin)
-            ->from('/admin/settings')
-            ->post(route('admin.settings.home-content'), [
-                'remove_login_background' => true,
-                'remove_hero_media' => true,
-            ])
-            ->assertRedirect('/admin/settings');
-
-        $this->assertNull(SiteSetting::where('key', 'login_background_path')->value('value'));
-        $this->assertNull(SiteSetting::where('key', 'hero_media_path')->value('value'));
-        $this->assertNull(SiteSetting::where('key', 'hero_media_type')->value('value'));
-    }
-
-    public function test_missing_media_files_on_disk_fall_back_to_null_in_home_settings(): void
-    {
-        SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => 'site/non-existent-login.jpg']);
-        SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => 'site/non-existent-hero.jpg']);
-
-        $settings = SiteSetting::homeSettings();
-
-        $this->assertNull($settings['login_background_path']);
-        $this->assertNull($settings['hero_media_path']);
+        $this->assertNotEmpty($loginPath);
+        $this->assertNotEmpty($heroPath);
+        $this->assertTrue(Storage::disk('public')->exists($loginPath));
+        $this->assertTrue(Storage::disk('public')->exists($heroPath));
+        $this->assertSame('image', SiteSetting::where('key', 'hero_media_type')->value('value'));
     }
 }

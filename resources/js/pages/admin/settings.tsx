@@ -15,6 +15,7 @@ import {
     Smartphone,
     Tag,
     Trash2,
+    type LucideIcon,
     UserRound,
     Warehouse,
     X,
@@ -328,21 +329,29 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
             }),
         [logs.entries, query, severity, status],
     );
+    const statCards: [string, number, LucideIcon][] = [
+        ['Active sessions', logs.stats.activeSessions, UserRound],
+        ['Unique devices', logs.stats.uniqueDevices, Laptop],
+        ['IP addresses', logs.stats.uniqueIps, Server],
+        ['Failed logins', logs.stats.failedLogins, ShieldAlert],
+        ['Security alerts', logs.stats.securityAlerts, ShieldAlert],
+        ['System errors', logs.stats.systemErrors, FileText],
+    ];
 
     return (
         <>
             <Head title="Admin settings" />
             <PortalLayout role="admin" title="System settings" eyebrow="Platform controls">
-                <div className="mb-8">
+                <div className="mb-6 min-w-0 sm:mb-8">
                     <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-[#b06b38] uppercase">Maintenance center</p>
-                    <h1 className="font-display mt-2 text-3xl font-bold tracking-tight text-[#173b27] sm:text-4xl">Keep the platform healthy.</h1>
-                    <p className="mt-2 max-w-2xl text-sm text-[#6a7c70]">
+                    <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-4xl">Keep the platform healthy.</h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6a7c70]">
                         Manage application caches and inspect recent system logs from one protected workspace.
                     </p>
                 </div>
 
-                <div className="grid gap-6 xl:grid-cols-2">
-                    <section className="relative overflow-hidden border border-[#dce8dc] bg-[#f6fbf5] p-5 sm:p-6 xl:col-span-2">
+                <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-2">
+                    <section className="relative min-w-0 overflow-hidden border border-[#dce8dc] bg-[#f6fbf5] p-4 sm:p-6 xl:col-span-2">
                         <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full border-18 border-[#e5f2e4]" />
                         <div className="relative">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -398,7 +407,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         </div>
                     </section>
 
-                    <section className="border bg-white p-5 sm:p-6 xl:col-span-2">
+                    <section className="min-w-0 border bg-white p-4 sm:p-6 xl:col-span-2">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                             <div className="flex items-center gap-3">
                                 <span className="rounded-xl bg-[#fff1da] p-3 text-[#a86618]">
@@ -406,7 +415,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 </span>
                                 <div>
                                     <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Security & system activity</p>
-                                    <h2 className="font-display mt-1 text-xl font-bold text-[#173b27]">Recent system events</h2>
+                                    <h2 className="font-display mt-1 text-lg font-bold text-[#173b27] sm:text-xl">Recent system events</h2>
                                     <p className="mt-1 text-xs text-[#829187]">Monitor access, application health, and active devices in one view.</p>
                                 </div>
                             </div>
@@ -427,14 +436,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         </div>
 
                         <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                            {[
-                                ['Active sessions', logs.stats.activeSessions, UserRound],
-                                ['Unique devices', logs.stats.uniqueDevices, Laptop],
-                                ['IP addresses', logs.stats.uniqueIps, Server],
-                                ['Failed logins', logs.stats.failedLogins, ShieldAlert],
-                                ['Security alerts', logs.stats.securityAlerts, ShieldAlert],
-                                ['System errors', logs.stats.systemErrors, FileText],
-                            ].map(([label, value, Icon]) => (
+                            {statCards.map(([label, value, Icon]) => (
                                 <div key={String(label)} className="rounded-xl border border-[#edf0eb] bg-[#f8fbf7] p-3">
                                     <div className="flex items-center justify-between text-[#7c8d82]">
                                         <span className="text-[10px] font-bold tracking-wider uppercase">{label}</span>
@@ -458,7 +460,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             <select
                                 value={severity}
                                 onChange={(event) => setSeverity(event.target.value)}
-                                className="border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350] lg:w-auto"
                             >
                                 <option value="all">All severity</option>
                                 <option value="info">Info</option>
@@ -469,7 +471,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             <select
                                 value={status}
                                 onChange={(event) => setStatus(event.target.value)}
-                                className="border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350] lg:w-auto"
                             >
                                 <option value="all">All outcomes</option>
                                 <option value="success">Success</option>
@@ -478,7 +480,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </select>
                         </div>
 
-                        <div className="mt-5 overflow-hidden rounded-xl border border-[#edf0eb]">
+                        <div className="mt-5 min-w-0 overflow-x-auto rounded-xl border border-[#edf0eb]">
                             <div>
                                 <div className="hidden grid-cols-[1.25fr_1.5fr_1fr_1fr_1fr_34px] gap-3 border-b border-[#edf0eb] bg-[#f8fbf7] px-4 py-3 text-[10px] font-bold tracking-wider text-[#819086] uppercase md:grid">
                                     <span>Event</span>
@@ -493,7 +495,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                         <button
                                             key={entry.id}
                                             onClick={() => setSelectedLog(entry)}
-                                            className="block w-full border-b border-[#f0f2ee] px-4 py-3 text-left transition last:border-0 hover:bg-[#fbfdfb] md:grid md:grid-cols-[1.25fr_1.5fr_1fr_1fr_1fr_34px] md:gap-3"
+                                            className="block w-full min-w-0 border-b border-[#f0f2ee] px-3 py-3 text-left transition last:border-0 hover:bg-[#fbfdfb] sm:px-4 md:grid md:grid-cols-[1.25fr_1.5fr_1fr_1fr_1fr_34px] md:gap-3"
                                         >
                                             <span className="flex min-w-0 items-start justify-between gap-3 md:block">
                                                 <span>
@@ -549,7 +551,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         </div>
                     </section>
 
-                    <section className="border bg-[#173b27] p-5 text-white sm:p-6">
+                    <section className="min-w-0 border bg-[#173b27] p-4 text-white sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-[11px] font-bold tracking-[0.18em] text-[#b8d5b8] uppercase">Security activity</p>
@@ -575,7 +577,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             <span className="h-2 w-2 rounded-full bg-[#75d28e]" /> {logs.stats.activeSessions} active session records
                         </div>
                     </section>
-                    <section className="border bg-white p-5 sm:p-6">
+                    <section className="min-w-0 border bg-white p-4 sm:p-6">
                         <div className="flex items-center gap-3">
                             <span className="rounded-xl bg-[#fbe8e5] p-3 text-[#b9574a]">
                                 <ShieldAlert size={20} />
@@ -650,18 +652,18 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                     </div>
                 )}
 
-                <section className="mt-8 border bg-white p-5 sm:p-6">
+                <section className="mt-6 min-w-0 border bg-white p-4 sm:mt-8 sm:p-6">
                     <div className="flex items-center gap-3">
                         <span className="rounded-xl bg-[#eaf6ee] p-3 text-[#1f7a42]">
                             <PencilLine size={20} />
                         </span>
                         <div>
                             <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Homepage editor</p>
-                            <h2 className="font-display mt-1 text-xl font-bold text-[#173b27]">Edit front page content</h2>
+                            <h2 className="font-display mt-1 text-lg font-bold text-[#173b27] sm:text-xl">Edit front page content</h2>
                         </div>
                     </div>
 
-                    <form onSubmit={saveHomeContent} className="mt-6 grid gap-4">
+                    <form onSubmit={saveHomeContent} className="mt-5 grid min-w-0 gap-3 sm:mt-6 sm:gap-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Brand name
@@ -759,7 +761,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Login background image
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-[16/9] w-full overflow-hidden rounded-lg bg-white sm:aspect-[16/7]">
+                                <div className="mb-3 aspect-video w-full overflow-hidden rounded-lg bg-white sm:aspect-16/7">
                                     {homeForm.data.login_background ? (
                                         <img
                                             src={URL.createObjectURL(homeForm.data.login_background)}
@@ -835,7 +837,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Hero image or video
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-[16/7] w-full overflow-hidden rounded-lg bg-white sm:aspect-[16/5]">
+                                <div className="mb-3 aspect-16/7 w-full overflow-hidden rounded-lg bg-white sm:aspect-16/5">
                                     {homeForm.data.hero_media ? (
                                         homeForm.data.hero_media.type.startsWith('video/') ? (
                                             <video
