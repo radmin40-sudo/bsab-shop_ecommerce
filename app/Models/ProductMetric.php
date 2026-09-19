@@ -9,6 +9,8 @@ class ProductMetric extends Model
 {
     use HasFactory;
 
+    const CREATED_AT = null;
+
     protected $fillable = [
         'product_id',
         'views_count',

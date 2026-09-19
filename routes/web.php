@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AI\ProductAIController;
 use App\Http\Controllers\Auth\AdminRegistrationController;
+use App\Http\Controllers\LaravelCrudTesterController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SellerProductController;
@@ -103,6 +104,10 @@ Route::get('/', function (Request $request) use ($storefrontProps) {
 })->name('home');
 
 Route::get('/marketplace', fn () => Inertia::render('customer/marketplace', $storefrontProps()))->name('marketplace');
+
+Route::get('/test', [LaravelCrudTesterController::class, 'index'])->name('tester.index');
+Route::match(['get', 'post'], '/test/run', [LaravelCrudTesterController::class, 'runAll'])->name('tester.run-all');
+Route::match(['get', 'post'], '/test/run/{entity}', [LaravelCrudTesterController::class, 'runSingle'])->name('tester.run-single');
 
 Route::get('/test-gemini-image', [TestGeminiImageController::class, 'page'])->name('test.gemini.image.page');
 Route::post('/test-gemini-image', [TestGeminiImageController::class, 'test'])->name('test.gemini.image');
