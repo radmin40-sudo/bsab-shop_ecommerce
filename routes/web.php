@@ -213,7 +213,7 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
 })->name('test.gemini');
 
 Route::get('/products/{product}', function (Product $product) {
-    abort_unless($product->is_active && $product->status !== 'rejected', 404);
+    abort_unless($product->status !== 'rejected', 404);
 
     $similarProducts = Product::published()
         ->where('id', '!=', $product->id)
