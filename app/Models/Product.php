@@ -11,7 +11,10 @@ class Product extends Model
 
     public function scopePublished($query)
     {
-        return $query->where('status', 'published');
+        return $query->where('is_active', true)
+            ->where(function ($statusQuery) {
+                $statusQuery->whereNull('status')->orWhere('status', '!=', 'rejected');
+            });
     }
 
     protected $fillable = [
