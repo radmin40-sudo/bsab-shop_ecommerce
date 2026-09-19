@@ -51,6 +51,7 @@ class AdminUserController extends Controller
         ]);
         Role::findOrCreate($data['role'], 'web');
         $user->assignRole($data['role']);
+        $user->forceFill(['role' => $data['role']])->save();
 
         return to_route('admin.users');
     }
@@ -77,6 +78,7 @@ class AdminUserController extends Controller
         $user->save();
         Role::findOrCreate($data['role'], 'web');
         $user->syncRoles([$data['role']]);
+        $user->forceFill(['role' => $data['role']])->save();
 
         return to_route('admin.users');
     }

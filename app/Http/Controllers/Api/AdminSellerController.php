@@ -27,6 +27,7 @@ class AdminSellerController extends Controller
                 : null;
             $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'role' => 'seller', 'phone' => $data['phone'] ?? null, 'avatar' => $avatar, 'password' => Hash::make($data['password'] ?? Str::password(16)), 'must_change_password' => ! isset($data['password'])]);
             $user->assignRole('seller');
+            $user->forceFill(['role' => 'seller'])->save();
             $user->shop()->create(['created_by' => $request->user()->id, 'name' => $data['shop_name'], 'slug' => Str::slug($data['shop_name']).'-'.Str::lower(Str::random(5)), 'commission_rate' => $data['commission_rate'] ?? 10]);
 
             return $user->load('shop');

@@ -35,4 +35,27 @@ class AdminSellerCreationTest extends TestCase
         $this->assertTrue($seller->hasRole('seller'));
         $this->assertDatabaseHas('shops', ['user_id' => $seller->id, 'name' => 'Fresh Seller Shop']);
     }
+
+    public function test_admin_user_form_keeps_a_selected_seller_role_in_the_users_table(): void
+    {
+        Role::findOrCreate('admin', 'web');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->from('/admin/users')
+            ->post(route('admin.users.store'), [
+                'name' => 'Form Seller',
+                'email' => 'form-seller@example.com',
+                'password' => 'ChangeMe123!Secure',
+                'role' => 'seller',
+                'status' => 'active',
+            ])
+            ->assertRedirect('/admin/users');
+
+        $seller = User::where('email', 'form-seller@example.com')->firstOrFail();
+
+        $this->assertSame('seller', $seller->role);
+        $this->assertTrue($seller->hasRole('seller'));
+    }
 }
