@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminCategoryController;
+use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminProductController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\AdminUserController;
@@ -297,7 +298,7 @@ Route::middleware(['guest', 'throttle:5,1'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
-    Route::get('/', fn () => Inertia::render('admin/dashboard'))->name('admin.dashboard');
+    Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('admin.profile');
     Route::get('/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
     Route::post('/settings/cache/clear', [AdminSettingsController::class, 'clearCache'])->name('admin.settings.cache.clear');

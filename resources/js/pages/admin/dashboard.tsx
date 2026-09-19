@@ -1,190 +1,94 @@
 import { PortalLayout, StatCard } from '@/components/portal-layout';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowDownRight, ArrowUpRight, Box, CircleDollarSign, Clock3, Package, Plus, Store, Users } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Box, CircleDollarSign, Clock3, Package, Plus, Store, Users } from 'lucide-react';
 
-const chart = [34, 48, 42, 58, 51, 73, 63, 81, 68, 88, 76, 96];
+type DashboardProps = {
+    metrics: { grossSales: number; salesChange: number | null; orders: number; awaitingOrders: number; activeSellers: number; newSellers: number; customers: number; newCustomers: number; products: number; pendingProducts: number; categories: number; vouchers: number };
+    chart: { label: string; sales: number; orders: number }[];
+    orderStatuses: { status: string; total: number }[];
+    topCategories: { id: number; name: string; products_count: number }[];
+    recentOrders: { id: number; order_number: string; status: string; payment_status: string; total: string; created_at: string; user?: { name: string } | null }[];
+    generatedAt: string;
+};
 
-const activity = [
-    {
-        title: 'New seller application',
-        detail: 'Northstar Goods submitted a shop',
-        time: '12 min ago',
-        icon: Store,
-        color: 'bg-[#e7f4e8] text-[#23824a]',
-    },
-    {
-        title: 'Order #10482 paid',
-        detail: 'Payment confirmed by Maya Santos',
-        time: '28 min ago',
-        icon: CircleDollarSign,
-        color: 'bg-[#fff1da] text-[#a86618]',
-    },
-    { title: 'Product reported', detail: 'Review needed for listing #882', time: '1 hr ago', icon: Box, color: 'bg-[#fbe8e5] text-[#bd5144]' },
-];
+function money(value: number) {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(value);
+}
 
-const quickLinks = [
-    ['Manage sellers', '/admin/sellers', Store],
-    ['Review products', '/admin/products', Box],
-    ['Check orders', '/admin/orders', Package],
-    ['Manage users', '/admin/users', Users],
-] as const;
+function shortNumber(value: number) {
+    return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
 
-export default function AdminDashboard() {
+function statusTone(status: string) {
+    if (['completed', 'delivered', 'paid', 'approved'].includes(status)) return 'bg-[#e7f4e8] text-[#23824a]';
+    if (['cancelled', 'rejected', 'failed'].includes(status)) return 'bg-[#fbe8e5] text-[#bd5144]';
+    return 'bg-[#fff1da] text-[#a86618]';
+}
+
+export default function AdminDashboard({ metrics, chart, orderStatuses, topCategories, recentOrders, generatedAt }: DashboardProps) {
+    const maxSales = Math.max(...chart.map((point) => point.sales), 1);
+    const totalStatusOrders = orderStatuses.reduce((total, item) => total + item.total, 0) || 1;
+    const peak = chart.reduce((best, point) => (point.sales > best.sales ? point : best), chart[0] ?? { label: '', sales: 0, orders: 0 });
+    const catalogCards = [
+        ['Products', metrics.products, '/admin/products', Box],
+        ['Pending review', metrics.pendingProducts, '/admin/products', Clock3],
+        ['Categories', metrics.categories, '/admin/categories', Store],
+        ['Vouchers', metrics.vouchers, '/admin/vouchers', CircleDollarSign],
+    ] as const;
+
     return (
         <>
             <Head title="Admin overview" />
-            <PortalLayout role="admin" title="Platform overview" eyebrow="Good morning, admin">
-                <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                    <div>
-                        <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-[#b06b38] uppercase">Monday, August 24, 2026</p>
-                        <h1 className="font-display mt-2 text-3xl font-bold tracking-tight text-[#173b27] sm:text-4xl">Good morning, admin.</h1>
-                        <p className="mt-2 text-sm text-[#6a7c70]">Here is what is happening across your marketplace today.</p>
+            <PortalLayout role="admin" title="Platform overview" eyebrow="Live marketplace data">
+                <div className="mb-6 flex min-w-0 flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-end">
+                    <div className="min-w-0">
+                        <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-[#b06b38] uppercase">Database overview</p>
+                        <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-4xl">Good morning, admin.</h1>
+                        <p className="mt-2 text-sm leading-6 text-[#6a7c70]">Every number below is calculated from your live marketplace database.</p>
                     </div>
-                    <Link
-                        href="/admin/products"
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-[#173b27] px-4 text-sm font-semibold text-white transition hover:bg-[#245b3b]"
-                    >
+                    <Link href="/admin/products" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-[#173b27] px-4 text-sm font-semibold text-white transition hover:bg-[#245b3b] sm:w-auto">
                         <Plus size={16} /> Add product
                     </Link>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatCard label="Gross sales" value="₱24,860" detail="+18.4% this month" tone="green" />
-                    <StatCard label="Orders" value="384" detail="42 awaiting fulfillment" />
-                    <StatCard label="Active sellers" value="28" detail="4 new this month" tone="warm" />
-                    <StatCard label="Customers" value="2,418" detail="+9.2% this month" />
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard label="Gross sales" value={money(metrics.grossSales)} detail={metrics.salesChange === null ? 'No prior paid sales' : `${metrics.salesChange >= 0 ? '+' : ''}${metrics.salesChange}% vs previous 30 days`} tone="green" />
+                    <StatCard label="Orders" value={shortNumber(metrics.orders)} detail={`${metrics.awaitingOrders} awaiting fulfillment`} />
+                    <StatCard label="Active sellers" value={shortNumber(metrics.activeSellers)} detail={`${metrics.newSellers} new this month`} tone="warm" />
+                    <StatCard label="Customers" value={shortNumber(metrics.customers)} detail={`${metrics.newCustomers} new this month`} />
                 </div>
-                <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,.75fr)]">
-                    <section className="border bg-white p-5 sm:p-6">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Revenue overview</p>
-                                <h2 className="font-display mt-2 text-xl font-bold text-[#173b27]">Sales performance</h2>
-                            </div>
-                            <div className="flex items-center gap-1 rounded-lg border border-[#e1ebe0] bg-[#f8fbf7] p-1 text-xs font-semibold">
-                                <button className="rounded-md bg-white px-3 py-1.5 text-[#173b27] shadow-sm">30 days</button>
-                                <button className="px-3 py-1.5 text-[#829187]">12 months</button>
-                            </div>
-                        </div>
-                        <div className="mt-7 flex h-52 items-end gap-2 border-b border-l border-[#e5ece4] px-2 sm:gap-3">
-                            {chart.map((height, index) => (
-                                <div key={index} className="group relative flex h-full flex-1 items-end">
-                                    <span
-                                        className="absolute bottom-0 w-full rounded-t-[5px] bg-[#9acb9d] transition-all group-hover:bg-[#287e4a]"
-                                        style={{ height: `${height}%` }}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-3 flex justify-between pl-2 text-[11px] font-medium text-[#8b998e]">
-                            <span>Jul 26</span>
-                            <span>Aug 02</span>
-                            <span>Aug 09</span>
-                            <span>Aug 16</span>
-                            <span>Aug 24</span>
-                        </div>
-                        <div className="mt-6 flex items-center gap-2 text-sm text-[#5f7064]">
-                            <span className="h-2 w-2 rounded-full bg-[#287e4a]" /> Net sales <strong className="text-[#173b27]">₱24,860</strong>
-                            <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-[#287e4a]">
-                                <ArrowUpRight size={13} /> 18.4%
-                            </span>
-                        </div>
-                    </section>
-                    <section className="border bg-[#173b27] p-5 text-white sm:p-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-[11px] font-bold tracking-[0.18em] text-[#a9d2a8] uppercase">Needs attention</p>
-                                <h2 className="font-display mt-2 text-xl font-bold">Your next moves</h2>
-                            </div>
-                            <Clock3 className="text-[#e4b878]" size={21} />
-                        </div>
-                        <div className="mt-7 space-y-5">
-                            <Link href="/admin/products" className="group flex items-start gap-3">
-                                <span className="mt-0.5 rounded-lg bg-[#345b3d] p-2 text-[#f0c27f]">
-                                    <Package size={16} />
-                                </span>
-                                <span className="text-sm">
-                                    <strong className="block font-semibold">12 products to review</strong>
-                                    <span className="mt-1 block text-xs text-[#b4c8b5]">Moderation queue is growing</span>
-                                </span>
-                                <ArrowUpRight className="ml-auto text-[#7aa67d] transition group-hover:text-white" size={15} />
-                            </Link>
-                            <Link href="/admin/sellers" className="group flex items-start gap-3">
-                                <span className="mt-0.5 rounded-lg bg-[#345b3d] p-2 text-[#f0c27f]">
-                                    <Store size={16} />
-                                </span>
-                                <span className="text-sm">
-                                    <strong className="block font-semibold">3 sellers to verify</strong>
-                                    <span className="mt-1 block text-xs text-[#b4c8b5]">Applications need a decision</span>
-                                </span>
-                                <ArrowUpRight className="ml-auto text-[#7aa67d] transition group-hover:text-white" size={15} />
-                            </Link>
-                            <Link href="/admin/users" className="group flex items-start gap-3">
-                                <span className="mt-0.5 rounded-lg bg-[#345b3d] p-2 text-[#f0c27f]">
-                                    <Users size={16} />
-                                </span>
-                                <span className="text-sm">
-                                    <strong className="block font-semibold">8 support threads</strong>
-                                    <span className="mt-1 block text-xs text-[#b4c8b5]">Customers are waiting for help</span>
-                                </span>
-                                <ArrowUpRight className="ml-auto text-[#7aa67d] transition group-hover:text-white" size={15} />
-                            </Link>
-                        </div>
-                        <Link
-                            href="/admin/orders"
-                            className="mt-8 flex items-center justify-center rounded-lg border border-[#527657] py-2.5 text-xs font-semibold text-[#d6e6d3] transition hover:bg-[#285a38]"
-                        >
-                            View all operations <ArrowUpRight size={14} className="ml-2" />
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {catalogCards.map(([label, value, href, Icon]) => (
+                        <Link key={label} href={href} className="flex min-w-0 items-center gap-3 border border-[#def0e2] bg-white p-4 transition hover:border-[#9acb9d]">
+                            <span className="rounded-lg bg-[#f0f8f0] p-2.5 text-[#287e4a]"><Icon size={17} /></span>
+                            <span className="min-w-0"><span className="block truncate text-xs font-semibold text-[#7b8b80]">{label}</span><strong className="mt-1 block text-xl text-[#173b27]">{value}</strong></span>
                         </Link>
+                    ))}
+                </div>
+
+                <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,.75fr)]">
+                    <section className="min-w-0 border bg-white p-4 sm:p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Revenue overview</p><h2 className="font-display mt-2 text-lg font-bold text-[#173b27] sm:text-xl">Paid sales, last 30 days</h2></div><span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf6ee] px-2.5 py-1 text-[10px] font-bold text-[#287d48] uppercase"><BarChart3 size={13} /> Live</span></div>
+                        <div className="mt-7 flex h-56 min-w-0 items-end gap-1 border-b border-l border-[#e5ece4] px-2 sm:gap-2">
+                            {chart.map((point) => <div key={point.label} title={`${point.label}: ${money(point.sales)} · ${point.orders} orders`} className="group relative flex h-full min-w-0 flex-1 items-end"><span className="w-full rounded-t-lg bg-[#9acb9d] transition group-hover:bg-[#287e4a]" style={{ height: `${Math.max((point.sales / maxSales) * 100, point.sales ? 4 : 1)}%` }} /></div>)}
+                        </div>
+                        <div className="mt-3 flex justify-between pl-2 text-[10px] font-medium text-[#8b998e]"><span>{chart[0]?.label}</span><span>{chart[Math.floor(chart.length / 2)]?.label}</span><span>{chart.at(-1)?.label}</span></div>
+                        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-[#5f7064]"><span className="h-2 w-2 rounded-full bg-[#287e4a]" /> Net sales <strong className="text-[#173b27]">{money(metrics.grossSales)}</strong>{peak.sales > 0 && <span className="text-xs text-[#829187]">Peak: {peak.label} ({money(peak.sales)})</span>}</div>
+                    </section>
+
+                    <section className="min-w-0 border bg-[#173b27] p-4 text-white sm:p-6">
+                        <div className="flex items-start justify-between"><div><p className="text-[11px] font-bold tracking-[0.18em] text-[#a9d2a8] uppercase">Order health</p><h2 className="font-display mt-2 text-lg font-bold sm:text-xl">Status breakdown</h2></div><Package className="text-[#e4b878]" size={21} /></div>
+                        <div className="mt-6 space-y-3">{orderStatuses.length ? orderStatuses.map((item) => <div key={item.status}><div className="mb-1 flex justify-between text-xs"><span className="capitalize text-[#d6e6d3]">{item.status}</span><strong>{item.total}</strong></div><div className="h-2 overflow-hidden rounded-full bg-[#345b3d]"><div className="h-full rounded-full bg-[#a9d2a8]" style={{ width: `${(item.total / totalStatusOrders) * 100}%` }} /></div></div>) : <p className="text-sm text-[#b4c8b5]">No orders recorded yet.</p>}</div>
+                        <Link href="/admin/orders" className="mt-7 flex items-center justify-center rounded-lg border border-[#527657] py-2.5 text-xs font-semibold text-[#d6e6d3] transition hover:bg-[#285a38]">View all orders <ArrowUpRight size={14} className="ml-2" /></Link>
                     </section>
                 </div>
-                <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-                    <section className="border bg-white p-5 sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Recent activity</p>
-                                <h2 className="font-display mt-2 text-xl font-bold text-[#173b27]">The latest from your platform</h2>
-                            </div>
-                            <Link href="/admin/orders" className="text-xs font-semibold text-[#287e4a] hover:underline">
-                                View all
-                            </Link>
-                        </div>
-                        <div className="mt-5 divide-y divide-[#edf1eb]">
-                            {activity.map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <div key={item.title} className="flex items-center gap-3 py-3 first:pt-0">
-                                        <span className={`rounded-lg p-2.5 ${item.color}`}>
-                                            <Icon size={16} />
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-[#294231]">{item.title}</p>
-                                            <p className="truncate text-xs text-[#839087]">{item.detail}</p>
-                                        </div>
-                                        <span className="shrink-0 text-[11px] text-[#9ba79e]">{item.time}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                    <section className="border bg-[#fff9f1] p-5 sm:p-6">
-                        <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Quick access</p>
-                        <h2 className="font-display mt-2 text-xl font-bold text-[#3d3024]">Keep things moving</h2>
-                        <div className="mt-5 grid grid-cols-2 gap-2">
-                            {quickLinks.map(([label, href, Icon]) => (
-                                <Link
-                                    key={label}
-                                    href={href}
-                                    className="flex items-center gap-2 rounded-lg border border-[#eadfce] bg-white px-3 py-3 text-xs font-semibold text-[#594838] transition hover:border-[#b06b38] hover:text-[#a45e2d]"
-                                >
-                                    <Icon size={15} /> {label}
-                                </Link>
-                            ))}
-                        </div>
-                        <div className="mt-6 flex items-center gap-2 border-t border-[#eadfce] pt-4 text-xs text-[#8c7763]">
-                            <ArrowDownRight size={15} /> Everything looks steady today.
-                        </div>
-                    </section>
+
+                <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[1.15fr_.85fr]">
+                    <section className="min-w-0 border bg-white p-4 sm:p-6"><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Recent orders</p><h2 className="font-display mt-2 text-lg font-bold text-[#173b27] sm:text-xl">Latest transactions</h2></div><Link href="/admin/orders" className="shrink-0 text-xs font-semibold text-[#287e4a] hover:underline">View all</Link></div><div className="mt-5 divide-y divide-[#edf1eb]">{recentOrders.length ? recentOrders.map((order) => <div key={order.id} className="flex min-w-0 items-center gap-3 py-3 first:pt-0"><span className="rounded-lg bg-[#e7f4e8] p-2.5 text-[#23824a]"><CircleDollarSign size={16} /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#294231]">{order.order_number}</p><p className="truncate text-xs text-[#839087]">{order.user?.name ?? 'Unknown customer'}</p></div><div className="shrink-0 text-right"><p className="text-sm font-semibold text-[#294231]">{money(Number(order.total))}</p><span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusTone(order.status)}`}>{order.status}</span></div></div>) : <p className="py-5 text-sm text-[#839087]">No orders recorded yet.</p>}</div></section>
+                    <section className="min-w-0 border bg-[#fff9f1] p-4 sm:p-6"><p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Catalog mix</p><h2 className="font-display mt-2 text-lg font-bold text-[#3d3024] sm:text-xl">Top categories</h2><div className="mt-5 space-y-3">{topCategories.length ? topCategories.map((category) => <div key={category.id} className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-bold text-[#a45e2d]">{category.products_count}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#594838]">{category.name}</span><span className="text-[11px] text-[#8c7763]">products</span></div>) : <p className="text-sm text-[#8c7763]">No categories recorded yet.</p>}</div><div className="mt-5 flex items-center gap-2 border-t border-[#eadfce] pt-4 text-xs text-[#8c7763]"><Users size={15} /> {metrics.customers} registered customers</div></section>
                 </div>
+                <p className="mt-4 text-right text-[10px] text-[#9ba79e]">Updated {new Date(generatedAt).toLocaleString()}</p>
             </PortalLayout>
         </>
     );

@@ -15,11 +15,11 @@ import {
     Smartphone,
     Tag,
     Trash2,
-    type LucideIcon,
     UserRound,
     Warehouse,
     X,
     Zap,
+    type LucideIcon,
 } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 
@@ -348,7 +348,9 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
             <PortalLayout role="admin" title="System settings" eyebrow="Platform controls">
                 <div className="mb-6 min-w-0 sm:mb-8">
                     <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-[#b06b38] uppercase">Maintenance center</p>
-                    <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-4xl">Keep the platform healthy.</h1>
+                    <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-4xl">
+                        Keep the platform healthy.
+                    </h1>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6a7c70]">
                         Manage application caches and inspect recent system logs from one protected workspace.
                     </p>
