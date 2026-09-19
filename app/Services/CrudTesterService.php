@@ -34,10 +34,10 @@ use App\Models\VariantOptionValue;
 use App\Models\Voucher;
 use App\Models\VoucherRedemption;
 use App\Models\Wishlist;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -1222,7 +1222,7 @@ class CrudTesterService
         ?callable $updateVerification = null
     ): array {
         /** @var Model $instance */
-        $instance = new $modelClass();
+        $instance = new $modelClass;
         $table = $instance->getTable();
         $results = [];
         $createdModel = null;
@@ -1254,8 +1254,8 @@ class CrudTesterService
                 'duration_ms' => 0,
                 'diagnosis' => [
                     'category' => 'Prerequisite Failed',
-                    'why_failed' => "READ operation skipped because CREATE failed.",
-                    'suggested_fix' => "Fix the CREATE failure first so the record can be read.",
+                    'why_failed' => 'READ operation skipped because CREATE failed.',
+                    'suggested_fix' => 'Fix the CREATE failure first so the record can be read.',
                 ],
             ];
             $results['update'] = [
@@ -1263,8 +1263,8 @@ class CrudTesterService
                 'duration_ms' => 0,
                 'diagnosis' => [
                     'category' => 'Prerequisite Failed',
-                    'why_failed' => "UPDATE operation skipped because CREATE failed.",
-                    'suggested_fix' => "Fix the CREATE failure first so the record can be updated.",
+                    'why_failed' => 'UPDATE operation skipped because CREATE failed.',
+                    'suggested_fix' => 'Fix the CREATE failure first so the record can be updated.',
                 ],
             ];
             $results['delete'] = [
@@ -1272,8 +1272,8 @@ class CrudTesterService
                 'duration_ms' => 0,
                 'diagnosis' => [
                     'category' => 'Prerequisite Failed',
-                    'why_failed' => "DELETE operation skipped because CREATE failed.",
-                    'suggested_fix' => "Fix the CREATE failure first so the record can be deleted.",
+                    'why_failed' => 'DELETE operation skipped because CREATE failed.',
+                    'suggested_fix' => 'Fix the CREATE failure first so the record can be deleted.',
                 ],
             ];
 
@@ -1411,16 +1411,16 @@ class CrudTesterService
             $suggestedFix = "Create a migration to add '{$column}' to `{$table}`: `php artisan make:migration add_{$column}_to_{$table}_table` then run `php artisan migrate`.";
         }
         // 2. Table not found (SQLSTATE 42S02 / 1146)
-        elseif (str_contains($message, '42S02') || str_contains($message, "Table") && str_contains($message, "doesn't exist") || str_contains($message, '1146')) {
+        elseif (str_contains($message, '42S02') || str_contains($message, 'Table') && str_contains($message, "doesn't exist") || str_contains($message, '1146')) {
             $category = 'Missing Database Table';
             $whyFailed = "The database table `{$table}` does not exist.";
-            $suggestedFix = "Run pending migrations using `php artisan migrate`. Ensure the table creation migration has executed.";
+            $suggestedFix = 'Run pending migrations using `php artisan migrate`. Ensure the table creation migration has executed.';
         }
         // 3. Foreign key constraint violation (SQLSTATE 23000 / 1452)
         elseif (str_contains($message, '1452') || str_contains($message, 'foreign key constraint fails')) {
             $category = 'Foreign Key Constraint Violation';
             $whyFailed = "Foreign key relationship constraint failed on table `{$table}`. A referenced parent record in another table does not exist or has been deleted.";
-            $suggestedFix = "Ensure all required parent relationship records exist prior to performing this operation, or check foreign key cascade definitions.";
+            $suggestedFix = 'Ensure all required parent relationship records exist prior to performing this operation, or check foreign key cascade definitions.';
         }
         // 4. Cannot be null constraint (SQLSTATE 23000 / 1048)
         elseif (str_contains($message, '1048') || str_contains($message, 'cannot be null')) {
@@ -1437,13 +1437,13 @@ class CrudTesterService
             $entry = $matches[1] ?? 'value';
             $keyName = $matches[2] ?? 'unique index';
             $whyFailed = "Duplicate entry '{$entry}' violates the unique index '{$keyName}' on table `{$table}`.";
-            $suggestedFix = "Ensure unique values (e.g., slug, sku, email) are generated with collision detection or random suffixes before saving.";
+            $suggestedFix = 'Ensure unique values (e.g., slug, sku, email) are generated with collision detection or random suffixes before saving.';
         }
         // 6. MassAssignmentException
-        elseif ($e instanceof \Illuminate\Database\Eloquent\MassAssignmentException) {
+        elseif ($e instanceof MassAssignmentException) {
             $category = 'Mass Assignment Exception';
-            $whyFailed = "One or more fields in the payload are not listed in `protected \$fillable` or are blocked by `\$guarded` on the model.";
-            $suggestedFix = "Add the missing attribute names to the `\$fillable` array in the model class.";
+            $whyFailed = 'One or more fields in the payload are not listed in `protected $fillable` or are blocked by `$guarded` on the model.';
+            $suggestedFix = 'Add the missing attribute names to the `$fillable` array in the model class.';
         }
         // 7. Missing soft deletes column
         elseif (str_contains($message, 'deleted_at') && str_contains($message, '42S22')) {
@@ -1454,8 +1454,8 @@ class CrudTesterService
         // 8. Connection refused or lost
         elseif (str_contains(strtolower($message), 'connection refused') || str_contains(strtolower($message), 'server has gone away')) {
             $category = 'Database Connection Failed';
-            $whyFailed = "Could not connect to the database server. Connection was refused or dropped.";
-            $suggestedFix = "Verify DB_HOST, DB_PORT, DB_USERNAME, and DB_PASSWORD environment variables in Railway or .env.";
+            $whyFailed = 'Could not connect to the database server. Connection was refused or dropped.';
+            $suggestedFix = 'Verify DB_HOST, DB_PORT, DB_USERNAME, and DB_PASSWORD environment variables in Railway or .env.';
         }
 
         return [
