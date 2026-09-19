@@ -146,4 +146,28 @@ class AdminSettingsBulkActionsTest extends TestCase
                 ->where('storageStatus.hero_media_path.value', 'site/hero-video.mp4')
             );
     }
+
+    public function test_admin_can_store_login_background_and_hero_media_files(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->from('/admin/settings')
+            ->post(route('admin.settings.home-content'), [
+                'brand_name' => 'BSABShop',
+                'login_background' => UploadedFile::fake()->image('login-bg.png', 1200, 900),
+                'hero_media' => UploadedFile::fake()->create('hero-video.mp4', 1024, 'video/mp4'),
+                'hero_title' => 'Best picks.',
+                'hero_highlight' => 'Best prices.',
+                'hero_description' => 'Discover products from every category.',
+            ])
+            ->assertRedirect('/admin/settings');
+
+        $this->assertNotNull(SiteSetting::where('key', 'login_background_path')->value('value'));
+        $this->assertNotNull(SiteSetting::where('key', 'hero_media_path')->value('value'));
+        $this->assertSame('video', SiteSetting::where('key', 'hero_media_type')->value('value'));
+    }
 }
