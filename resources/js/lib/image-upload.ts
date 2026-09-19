@@ -2,6 +2,7 @@ export type ImageResizeOptions = {
     maxWidth: number;
     maxHeight: number;
     quality?: number;
+    maxBytes?: number;
 };
 
 function isRasterImage(file: File) {
@@ -22,8 +23,20 @@ export async function optimizeImage(file: File, options: ImageResizeOptions): Pr
         canvas.getContext('2d')?.drawImage(bitmap, 0, 0, width, height);
         bitmap.close();
 
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', options.quality ?? 0.82));
-        if (!blob || blob.size >= file.size) return file;
+        const qualities = [options.quality ?? 0.82, 0.68, 0.55];
+        let blob: Blob | null = null;
+
+        for (const quality of qualities) {
+            const candidate = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+            if (!candidate) continue;
+
+            blob = candidate;
+            if (candidate.size <= (options.maxBytes ?? file.size) && candidate.size < file.size) break;
+        }
+
+        if (!blob || (blob.size >= file.size && !options.maxBytes) || (blob.size > (options.maxBytes ?? Number.MAX_SAFE_INTEGER))) {
+            return file;
+        }
 
         const name = `${file.name.replace(/\.[^.]+$/, '') || 'image'}.webp`;
         return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });

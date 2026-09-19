@@ -224,7 +224,11 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
 
         try {
             const processedFile = file.type.startsWith('image/')
-                ? await optimizeImage(file, field === 'logo' ? { maxWidth: 1200, maxHeight: 1200 } : { maxWidth: 2000, maxHeight: 1200 })
+                ? await optimizeImage(file, {
+                      maxWidth: field === 'logo' ? 1200 : 1600,
+                      maxHeight: field === 'logo' ? 1200 : 1000,
+                      maxBytes: 1_500_000,
+                  })
                 : file;
 
             router.post(
