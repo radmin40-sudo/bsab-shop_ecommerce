@@ -27,6 +27,8 @@ RUN install-php-extensions \
     zip \
     opcache
 
+RUN printf "upload_max_filesize=25M\npost_max_size=30M\nmax_file_uploads=20\nmemory_limit=256M\n" > /usr/local/etc/php/conf.d/uploads.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock ./
