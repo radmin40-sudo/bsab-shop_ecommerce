@@ -1,0 +1,9 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "/usr/local/bin/bsabshop-entrypoint"
+
+[[volumes]]
+mountPath = "/app/storage/app/public"
