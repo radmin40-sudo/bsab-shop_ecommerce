@@ -7,14 +7,12 @@ import {
     Grid2X2,
     Heart,
     Home,
-    LayoutGrid,
     LogOut,
     Package,
     Search,
     Settings,
     Shirt,
     ShoppingCart,
-    SlidersHorizontal,
     Smartphone,
     Sofa,
     Sparkles,
@@ -99,9 +97,6 @@ export default function Welcome({
     const [search, setSearch] = useState('');
     const [showNewOnly, setShowNewOnly] = useState(false);
     const [sortOption, setSortOption] = useState<SortOption>('popular');
-    const [filterOpen, setFilterOpen] = useState(false);
-    const [inStockOnly, setInStockOnly] = useState(false);
-    const [saleOnly, setSaleOnly] = useState(false);
     const [liked, setLiked] = useState<number[]>(() => {
         if (typeof window === 'undefined') return [];
         try {
@@ -147,13 +142,9 @@ export default function Welcome({
 
     const productFeed = useMemo(() => {
         const sourceProducts = search.trim() ? searchResults : products;
-        const filteredProducts = sourceProducts.filter((product) => {
-            const matchesCategory = activeCategory === 'all' || product.category?.slug === activeCategory;
-            const matchesStock = !inStockOnly || product.stock_quantity > 0;
-            const matchesSale = !saleOnly || Boolean(product.sale_price);
-
-            return matchesCategory && matchesStock && matchesSale;
-        });
+        const filteredProducts = sourceProducts.filter(
+            (product) => activeCategory === 'all' || product.category?.slug === activeCategory,
+        );
 
         if (sortOption === 'price-low' || sortOption === 'price-high') {
             return [...filteredProducts].sort((first, second) => {
@@ -164,7 +155,7 @@ export default function Welcome({
         }
 
         return showNewOnly ? filteredProducts.slice(0, 20) : filteredProducts;
-    }, [activeCategory, inStockOnly, products, saleOnly, search, searchResults, showNewOnly, sortOption]);
+    }, [activeCategory, products, search, searchResults, showNewOnly, sortOption]);
 
     function openProduct(product: Product) {
         router.visit(route('products.show', product.id));
@@ -469,110 +460,7 @@ export default function Welcome({
                             </h2>
                             <p className="mt-1 text-xs text-[#789184]">{productsSubtitle}</p>
                         </div>
-                        <div className="relative hidden items-center gap-2 sm:flex">
-                            <label className="flex items-center gap-2 rounded-lg border border-[#dfeae2] px-3 py-2 text-[10px] font-semibold text-[#5d7768]">
-                                <SlidersHorizontal size={13} />
-                                <span>Sort by</span>
-                                <select
-                                    value={sortOption}
-                                    onChange={(event) => setSortOption(event.target.value as SortOption)}
-                                    className="max-w-28 cursor-pointer bg-transparent text-[10px] font-bold text-[#184c35] outline-none"
-                                    aria-label="Sort products"
-                                >
-                                    <option value="popular">Most Popular</option>
-                                    <option value="newest">Newest</option>
-                                    <option value="price-low">Price: Low to High</option>
-                                    <option value="price-high">Price: High to Low</option>
-                                </select>
-                            </label>
-                            <button
-                                type="button"
-                                onClick={() => setFilterOpen((open) => !open)}
-                                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-semibold ${filterOpen || inStockOnly || saleOnly ? 'border-[#23834b] bg-[#eef8f0] text-[#1f7a42]' : 'border-[#dfeae2] text-[#5d7768]'}`}
-                                aria-expanded={filterOpen}
-                            >
-                                <SlidersHorizontal size={13} /> Filter
-                                {(inStockOnly || saleOnly) && (
-                                    <span className="rounded-full bg-[#23834b] px-1.5 text-white">{Number(inStockOnly) + Number(saleOnly)}</span>
-                                )}
-                            </button>
-                            {filterOpen && (
-                                <div className="absolute top-11 right-10 z-20 w-48 rounded-xl border border-[#dfeae2] bg-white p-3 text-xs shadow-[0_8px_25px_rgba(22,59,36,0.12)]">
-                                    <p className="mb-2 font-bold text-[#184c35]">Filter products</p>
-                                    <label className="flex cursor-pointer items-center gap-2 py-2 text-[#5d7768]">
-                                        <input
-                                            type="checkbox"
-                                            checked={inStockOnly}
-                                            onChange={(event) => setInStockOnly(event.target.checked)}
-                                            className="accent-[#23834b]"
-                                        />
-                                        In stock only
-                                    </label>
-                                    <label className="flex cursor-pointer items-center gap-2 py-2 text-[#5d7768]">
-                                        <input
-                                            type="checkbox"
-                                            checked={saleOnly}
-                                            onChange={(event) => setSaleOnly(event.target.checked)}
-                                            className="accent-[#23834b]"
-                                        />
-                                        On sale only
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setInStockOnly(false);
-                                            setSaleOnly(false);
-                                        }}
-                                        className="mt-2 text-[10px] font-bold text-[#23834b]"
-                                    >
-                                        Clear filters
-                                    </button>
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#23834b] text-white"
-                                aria-label="Grid view"
-                            >
-                                <LayoutGrid size={14} />
-                            </button>
-                        </div>
                     </div>
-                    {filterOpen && (
-                        <div className="order-3 mx-4 mb-3 rounded-xl border border-[#dfeae2] bg-[#fbfdfb] p-3 text-xs shadow-sm sm:hidden">
-                            <p className="mb-2 font-bold text-[#184c35]">Filter products</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <label className="flex cursor-pointer items-center gap-2 text-[#5d7768]">
-                                    <input
-                                        type="checkbox"
-                                        checked={inStockOnly}
-                                        onChange={(event) => setInStockOnly(event.target.checked)}
-                                        className="accent-[#23834b]"
-                                    />{' '}
-                                    In stock
-                                </label>
-                                <label className="flex cursor-pointer items-center gap-2 text-[#5d7768]">
-                                    <input
-                                        type="checkbox"
-                                        checked={saleOnly}
-                                        onChange={(event) => setSaleOnly(event.target.checked)}
-                                        className="accent-[#23834b]"
-                                    />{' '}
-                                    On sale
-                                </label>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setInStockOnly(false);
-                                    setSaleOnly(false);
-                                }}
-                                className="mt-2 text-[10px] font-bold text-[#23834b]"
-                            >
-                                Clear filters
-                            </button>
-                        </div>
-                    )}
                     <div className="order-4 grid grid-cols-2 gap-3 rounded-b-2xl border border-t-0 border-[#e3eee6] bg-white px-4 pb-5 sm:grid-cols-3 sm:gap-4 sm:px-5 lg:grid-cols-5">
                         {productFeed.map((product) => {
                             const price = product.sale_price ?? product.base_price;
