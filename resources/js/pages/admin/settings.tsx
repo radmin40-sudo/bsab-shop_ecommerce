@@ -574,28 +574,28 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
 
                     <form onSubmit={saveHomeContent} className="mt-6 grid gap-4">
                         <div className="grid gap-4 md:grid-cols-2">
-                            <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Brand name
                                 <input
                                     value={homeForm.data.brand_name}
                                     onChange={(event) => homeForm.setData('brand_name', event.target.value)}
-                                    className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                 />
                             </label>
-                            <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Button label
                                 <input
                                     value={homeForm.data.cta_label}
                                     onChange={(event) => homeForm.setData('cta_label', event.target.value)}
-                                    className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                 />
                             </label>
                         </div>
 
-                        <div className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Brand logo
-                            <div className="flex items-center gap-4 rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-[#dfe3dc] bg-white">
+                            <div className="flex flex-col gap-4 rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3 sm:flex-row sm:items-center">
+                                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#dfe3dc] bg-white">
                                     {homeForm.data.logo ? (
                                         <img
                                             src={URL.createObjectURL(homeForm.data.logo)}
@@ -627,15 +627,15 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                         const optimizedFile = await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 });
                                         autoSaveMediaField('logo', optimizedFile, input);
                                     }}
-                                    className="max-w-full text-sm"
+                                    className="w-full max-w-full text-sm sm:flex-1"
                                 />
                             </div>
                         </div>
 
-                        <div className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Login background image
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-16/7 overflow-hidden rounded-lg bg-white">
+                                <div className="mb-3 aspect-[16/9] w-full overflow-hidden rounded-lg bg-white sm:aspect-[16/7]">
                                     {homeForm.data.login_background ? (
                                         <img
                                             src={URL.createObjectURL(homeForm.data.login_background)}
@@ -667,7 +667,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                         const optimizedFile = await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 });
                                         autoSaveMediaField('login_background', optimizedFile, input);
                                     }}
-                                    className="max-w-full text-sm"
+                                    className="w-full max-w-full text-sm"
                                 />
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
                                     <span
@@ -685,10 +685,10 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </div>
                         </div>
 
-                        <div className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Hero image or video
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-16/5 overflow-hidden rounded-lg bg-white">
+                                <div className="mb-3 aspect-[16/7] w-full overflow-hidden rounded-lg bg-white sm:aspect-[16/5]">
                                     {homeForm.data.hero_media ? (
                                         homeForm.data.hero_media.type.startsWith('video/') ? (
                                             <video
@@ -734,7 +734,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                             : file;
                                         autoSaveMediaField('hero_media', optimizedFile, input);
                                     }}
-                                    className="max-w-full text-sm"
+                                    className="w-full max-w-full text-sm"
                                 />
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
                                     <span
@@ -752,73 +752,73 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </div>
                         </div>
 
-                        <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Hero title
                             <input
                                 value={homeForm.data.hero_title}
                                 onChange={(event) => homeForm.setData('hero_title', event.target.value)}
-                                className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                             />
                         </label>
 
-                        <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Highlight text
                             <input
                                 value={homeForm.data.hero_highlight}
                                 onChange={(event) => homeForm.setData('hero_highlight', event.target.value)}
-                                className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                             />
                         </label>
 
-                        <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Hero description
                             <textarea
                                 value={homeForm.data.hero_description}
                                 onChange={(event) => homeForm.setData('hero_description', event.target.value)}
                                 rows={4}
-                                className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                             />
                         </label>
 
                         <div className="grid gap-4 md:grid-cols-3">
                             {(['feature_one', 'feature_two', 'feature_three'] as const).map((field, index) => (
-                                <label key={field} className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                                <label key={field} className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                     Feature {index + 1}
                                     <input
                                         value={homeForm.data[field]}
                                         onChange={(event) => homeForm.setData(field, event.target.value)}
-                                        className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                        className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                     />
                                 </label>
                             ))}
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">
-                            <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Products section title
                                 <input
                                     value={homeForm.data.products_title}
                                     onChange={(event) => homeForm.setData('products_title', event.target.value)}
-                                    className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                 />
                             </label>
-                            <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Products section subtitle
                                 <input
                                     value={homeForm.data.products_subtitle}
                                     onChange={(event) => homeForm.setData('products_subtitle', event.target.value)}
-                                    className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                 />
                             </label>
                         </div>
 
-                        <label className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Footer text
                             <textarea
                                 value={homeForm.data.footer_text}
                                 onChange={(event) => homeForm.setData('footer_text', event.target.value)}
                                 rows={3}
-                                className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                             />
                         </label>
 
@@ -834,22 +834,22 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     'newsletter_placeholder',
                                 ] as const
                             ).map((field) => (
-                                <label key={field} className="grid gap-2 text-sm font-semibold text-[#173b27]">
+                                <label key={field} className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                     {field.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}
                                     <input
                                         value={homeForm.data[field]}
                                         onChange={(event) => homeForm.setData(field, event.target.value)}
-                                        className="border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
+                                        className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
                                     />
                                 </label>
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                             <button
                                 type="submit"
                                 disabled={homeForm.processing}
-                                className="inline-flex items-center gap-2 rounded-lg bg-[#173b27] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#285d3b] disabled:opacity-50"
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#173b27] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#285d3b] disabled:opacity-50 sm:w-auto"
                             >
                                 <Check size={15} /> {homeForm.processing ? 'Saving...' : 'Save homepage content'}
                             </button>
