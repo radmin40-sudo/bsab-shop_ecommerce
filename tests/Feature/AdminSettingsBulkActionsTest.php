@@ -6,9 +6,11 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shop;
+use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -121,5 +123,27 @@ class AdminSettingsBulkActionsTest extends TestCase
             ->assertRedirect('/admin/settings');
 
         $this->assertSame(0, Voucher::count());
+    }
+
+    public function test_admin_settings_page_exposes_database_storage_status_for_media(): void
+    {
+        Role::findOrCreate('admin', 'web');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => 'site/login-background.jpg']);
+        SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => 'site/hero-video.mp4']);
+        SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => 'video']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('storageStatus.login_background_path.inDatabase', true)
+                ->where('storageStatus.login_background_path.value', 'site/login-background.jpg')
+                ->where('storageStatus.hero_media_path.inDatabase', true)
+                ->where('storageStatus.hero_media_path.value', 'site/hero-video.mp4')
+            );
     }
 }

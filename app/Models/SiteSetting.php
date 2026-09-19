@@ -48,6 +48,24 @@ class SiteSetting extends Model
         return array_merge(self::defaults(), array_intersect_key($settings, self::defaults()));
     }
 
+    public static function mediaStorageStatus(): array
+    {
+        $keys = ['logo_path', 'login_background_path', 'hero_media_path'];
+
+        return collect($keys)->mapWithKeys(function (string $key) {
+            $value = self::query()->where('key', $key)->value('value');
+
+            return [
+                $key => [
+                    'key' => $key,
+                    'value' => $value,
+                    'inDatabase' => $value !== null,
+                    'existsOnDisk' => $value === null || self::isExternalPath($value) || Storage::disk('public')->exists($value),
+                ],
+            ];
+        })->all();
+    }
+
     private static function isExternalPath(string $path): bool
     {
         return str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/');

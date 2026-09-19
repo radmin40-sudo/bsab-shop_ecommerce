@@ -61,6 +61,7 @@ class AdminSettingsController extends Controller
                 ],
             ],
             'siteSettings' => SiteSetting::homeSettings(),
+            'storageStatus' => SiteSetting::mediaStorageStatus(),
         ]);
     }
 

@@ -47,6 +47,13 @@ type SiteSettings = {
 
 import { PortalLayout } from '@/components/portal-layout';
 
+type StorageStatusEntry = {
+    key: string;
+    value: string | null;
+    inDatabase: boolean;
+    existsOnDisk: boolean;
+};
+
 type AdminSettingsProps = {
     cache: { config: string; lastModified: number | null };
     logs: {
@@ -56,6 +63,7 @@ type AdminSettingsProps = {
         stats: Record<'activeSessions' | 'uniqueDevices' | 'uniqueIps' | 'failedLogins' | 'securityAlerts' | 'systemErrors', number>;
     };
     siteSettings: SiteSettings;
+    storageStatus?: Record<string, StorageStatusEntry>;
 };
 
 type LogEntry = {
@@ -102,11 +110,23 @@ function severityClass(severity: LogEntry['severity']) {
     }[severity];
 }
 
-export default function AdminSettings({ cache, logs, siteSettings }: AdminSettingsProps) {
+export default function AdminSettings({ cache, logs, siteSettings, storageStatus }: AdminSettingsProps) {
     const [query, setQuery] = useState('');
     const [severity, setSeverity] = useState('all');
     const [status, setStatus] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+    const loginStorageStatus = storageStatus?.login_background_path ?? {
+        key: 'login_background_path',
+        value: siteSettings.login_background_path ?? null,
+        inDatabase: Boolean(siteSettings.login_background_path),
+        existsOnDisk: Boolean(siteSettings.login_background_path),
+    };
+    const heroStorageStatus = storageStatus?.hero_media_path ?? {
+        key: 'hero_media_path',
+        value: siteSettings.hero_media_path ?? null,
+        inDatabase: Boolean(siteSettings.hero_media_path),
+        existsOnDisk: Boolean(siteSettings.hero_media_path),
+    };
     const cacheForm = useForm({});
     const logsForm = useForm({});
     const categoriesForm = useForm({});
@@ -618,6 +638,16 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                     }}
                                     className="max-w-full text-sm"
                                 />
+                                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
+                                    <span
+                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${loginStorageStatus.inDatabase ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]'}`}
+                                    >
+                                        {loginStorageStatus.inDatabase ? 'Stored in database' : 'Not stored yet'}
+                                    </span>
+                                    {loginStorageStatus.value && (
+                                        <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{loginStorageStatus.value}</span>
+                                    )}
+                                </div>
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">
                                     This image appears on the left side of the login screen. Maximum size: 10 MB.
                                 </p>
@@ -672,6 +702,16 @@ export default function AdminSettings({ cache, logs, siteSettings }: AdminSettin
                                     }}
                                     className="max-w-full text-sm"
                                 />
+                                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
+                                    <span
+                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${heroStorageStatus.inDatabase ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]'}`}
+                                    >
+                                        {heroStorageStatus.inDatabase ? 'Stored in database' : 'Not stored yet'}
+                                    </span>
+                                    {heroStorageStatus.value && (
+                                        <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{heroStorageStatus.value}</span>
+                                    )}
+                                </div>
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">
                                     Upload an image or MP4/WebM/MOV video. Maximum size: 20 MB.
                                 </p>
