@@ -202,6 +202,28 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         homeForm.post(route('admin.settings.home-content'), { preserveScroll: true, forceFormData: true });
     }
 
+    function autoSaveMediaField(field: 'logo' | 'login_background' | 'hero_media', file: File | null, input?: HTMLInputElement | null) {
+        if (!file) {
+            return;
+        }
+
+        homeForm.setData(field, file);
+        homeForm.post(route('admin.settings.home-content'), {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                if (input) {
+                    input.value = '';
+                }
+            },
+            onError: () => {
+                if (input) {
+                    input.value = '';
+                }
+            },
+        });
+    }
+
     const filteredLogs = useMemo(
         () =>
             logs.entries.filter((entry) => {
@@ -596,8 +618,14 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp,image/svg+xml"
                                     onChange={async (event) => {
-                                        const file = event.target.files?.[0];
-                                        homeForm.setData('logo', file ? await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 }) : null);
+                                        const input = event.target;
+                                        const file = input.files?.[0];
+                                        if (!file) {
+                                            return;
+                                        }
+
+                                        const optimizedFile = await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 });
+                                        autoSaveMediaField('logo', optimizedFile, input);
                                     }}
                                     className="max-w-full text-sm"
                                 />
@@ -630,11 +658,14 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp"
                                     onChange={async (event) => {
-                                        const file = event.target.files?.[0];
-                                        homeForm.setData(
-                                            'login_background',
-                                            file ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 }) : null,
-                                        );
+                                        const input = event.target;
+                                        const file = input.files?.[0];
+                                        if (!file) {
+                                            return;
+                                        }
+
+                                        const optimizedFile = await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 });
+                                        autoSaveMediaField('login_background', optimizedFile, input);
                                     }}
                                     className="max-w-full text-sm"
                                 />
@@ -692,13 +723,16 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime"
                                     onChange={async (event) => {
-                                        const file = event.target.files?.[0];
-                                        homeForm.setData(
-                                            'hero_media',
-                                            file?.type.startsWith('image/')
-                                                ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 })
-                                                : (file ?? null),
-                                        );
+                                        const input = event.target;
+                                        const file = input.files?.[0];
+                                        if (!file) {
+                                            return;
+                                        }
+
+                                        const optimizedFile = file.type.startsWith('image/')
+                                            ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 })
+                                            : file;
+                                        autoSaveMediaField('hero_media', optimizedFile, input);
                                     }}
                                     className="max-w-full text-sm"
                                 />
