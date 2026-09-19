@@ -21,87 +21,131 @@ class ImageOptimizationService
         }
 
         $mime = $this->actualMime($file);
-        if (! in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'], true)) {
+        if (! $this->isSupportedImage($file, $mime)) {
             throw new RuntimeException('The uploaded file is not a supported image.');
         }
 
-        if ($mime === 'image/svg+xml' || $mime === 'image/gif' || ! function_exists('imagewebp')) {
-            return $this->storeOriginal($file, $directory, $mime);
-        }
+        try {
+            if ($mime === 'image/svg+xml' || $mime === 'image/gif' || ! function_exists('imagewebp') || ! function_exists('imagecreatetruecolor')) {
+                return $this->storeOriginal($file, $directory);
+            }
 
-        $info = @getimagesize($file->getRealPath());
-        if (! is_array($info) || empty($info[0]) || empty($info[1])) {
-            throw new RuntimeException('The uploaded image could not be read.');
-        }
+            $info = @getimagesize($file->getRealPath());
+            if (! is_array($info) || empty($info[0]) || empty($info[1])) {
+                return $this->storeOriginal($file, $directory);
+            }
 
-        $source = $this->createSource($file, $mime);
-        if (! $source) {
-            throw new RuntimeException('The uploaded image could not be processed.');
-        }
+            $source = $this->createSource($file, $mime);
+            if (! $source) {
+                return $this->storeOriginal($file, $directory);
+            }
 
-        $source = $this->orient($source, $file, $mime);
-        $sourceWidth = imagesx($source);
-        $sourceHeight = imagesy($source);
+            $source = $this->orient($source, $file, $mime);
+            $sourceWidth = imagesx($source);
+            $sourceHeight = imagesy($source);
 
-        $maxWidth = (int) ($options['max_width'] ?? $options['max_dimension'] ?? 2000);
-        $maxHeight = (int) ($options['max_height'] ?? $options['max_dimension'] ?? 2000);
-        $scale = min(1, $maxWidth / $sourceWidth, $maxHeight / $sourceHeight);
-        $width = max(1, (int) round($sourceWidth * $scale));
-        $height = max(1, (int) round($sourceHeight * $scale));
+            $maxWidth = (int) ($options['max_width'] ?? $options['max_dimension'] ?? 2000);
+            $maxHeight = (int) ($options['max_height'] ?? $options['max_dimension'] ?? 2000);
+            $scale = min(1, $maxWidth / $sourceWidth, $maxHeight / $sourceHeight);
+            $width = max(1, (int) round($sourceWidth * $scale));
+            $height = max(1, (int) round($sourceHeight * $scale));
 
-        $canvas = imagecreatetruecolor($width, $height);
-        imagealphablending($canvas, false);
-        imagesavealpha($canvas, true);
-        imagefill($canvas, 0, 0, imagecolorallocatealpha($canvas, 255, 255, 255, 127));
-        imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+            $canvas = imagecreatetruecolor($width, $height);
+            imagealphablending($canvas, false);
+            imagesavealpha($canvas, true);
+            imagefill($canvas, 0, 0, imagecolorallocatealpha($canvas, 255, 255, 255, 127));
+            imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
 
-        $temporaryPath = tempnam(sys_get_temp_dir(), 'bsab-image-');
-        if ($temporaryPath === false || ! imagewebp($canvas, $temporaryPath, (int) ($options['quality'] ?? config('images.webp_quality', 82)))) {
-            imagedestroy($source);
-            imagedestroy($canvas);
-            throw new RuntimeException('The uploaded image could not be optimized.');
-        }
+            $temporaryPath = tempnam(sys_get_temp_dir(), 'bsab-image-');
+            if ($temporaryPath === false || ! imagewebp($canvas, $temporaryPath, (int) ($options['quality'] ?? config('images.webp_quality', 82)))) {
+                imagedestroy($source);
+                imagedestroy($canvas);
 
-        $path = trim($directory, '/').'/'.Str::lower(Str::random(40)).'.webp';
-        $contents = file_get_contents($temporaryPath);
-        if ($contents === false || $contents === '' || ! Storage::disk('public')->put($path, $contents) || ! Storage::disk('public')->exists($path)) {
+                return $this->storeOriginal($file, $directory);
+            }
+
+            $path = trim($directory, '/').'/'.Str::lower(Str::random(40)).'.webp';
+            $contents = file_get_contents($temporaryPath);
+            if ($contents === false || $contents === '' || ! Storage::disk('public')->put($path, $contents) || ! Storage::disk('public')->exists($path)) {
+                @unlink($temporaryPath);
+                imagedestroy($source);
+                imagedestroy($canvas);
+
+                return $this->storeOriginal($file, $directory);
+            }
+
             @unlink($temporaryPath);
             imagedestroy($source);
             imagedestroy($canvas);
 
-            return $this->storeOriginal($file, $directory, $mime);
-        }
-        @unlink($temporaryPath);
-        imagedestroy($source);
-        imagedestroy($canvas);
+            return $path;
+        } catch (\Throwable $e) {
+            report($e);
 
-        return $path;
+            return $this->storeOriginal($file, $directory);
+        }
+    }
+
+    private function isSupportedImage(UploadedFile $file, string $mime): bool
+    {
+        $supportedMimes = [
+            'image/jpeg',
+            'image/pjpeg',
+            'image/png',
+            'image/x-png',
+            'image/webp',
+            'image/x-webp',
+            'image/gif',
+            'image/svg+xml',
+            'image/bmp',
+            'image/x-ms-bmp',
+        ];
+
+        if (in_array(strtolower($mime), $supportedMimes, true)) {
+            return true;
+        }
+
+        $clientMime = strtolower((string) $file->getClientMimeType());
+        if (in_array($clientMime, $supportedMimes, true) || str_starts_with($clientMime, 'image/')) {
+            return true;
+        }
+
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'], true);
     }
 
     private function actualMime(UploadedFile $file): string
     {
-        $handle = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = $handle ? @finfo_file($handle, $file->getRealPath()) : false;
-        if ($handle) {
-            finfo_close($handle);
+        $mime = false;
+        if (function_exists('finfo_open')) {
+            $handle = @finfo_open(FILEINFO_MIME_TYPE);
+            if ($handle) {
+                $mime = @finfo_file($handle, $file->getRealPath());
+                finfo_close($handle);
+            }
         }
 
-        return is_string($mime) ? $mime : (string) $file->getMimeType();
+        if (is_string($mime) && $mime !== 'application/octet-stream') {
+            return strtolower($mime);
+        }
+
+        return strtolower((string) $file->getMimeType());
     }
 
     private function createSource(UploadedFile $file, string $mime): mixed
     {
         return match ($mime) {
-            'image/jpeg' => @imagecreatefromjpeg($file->getRealPath()),
-            'image/png' => @imagecreatefrompng($file->getRealPath()),
-            'image/webp' => @imagecreatefromwebp($file->getRealPath()),
+            'image/jpeg', 'image/pjpeg' => function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($file->getRealPath()) : null,
+            'image/png', 'image/x-png' => function_exists('imagecreatefrompng') ? @imagecreatefrompng($file->getRealPath()) : null,
+            'image/webp', 'image/x-webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($file->getRealPath()) : null,
             default => null,
         };
     }
 
     private function orient(mixed $image, UploadedFile $file, string $mime): mixed
     {
-        if ($mime !== 'image/jpeg' || ! function_exists('exif_read_data')) {
+        if (! in_array($mime, ['image/jpeg', 'image/pjpeg'], true) || ! function_exists('exif_read_data')) {
             return $image;
         }
 
@@ -110,27 +154,18 @@ class ImageOptimizationService
         if ($orientation === 3) {
             imageflip($image, IMG_FLIP_BOTH);
         } elseif ($orientation === 6) {
-            $image = imagerotate($image, -90, 0);
+            imageflip($image, IMG_FLIP_VERTICAL);
         } elseif ($orientation === 8) {
-            $image = imagerotate($image, 90, 0);
+            imageflip($image, IMG_FLIP_HORIZONTAL);
         }
 
         return $image;
     }
 
-    private function storeOriginal(UploadedFile $file, string $directory, string $mime): string
+    private function storeOriginal(UploadedFile $file, string $directory): string
     {
-        $extension = match ($mime) {
-            'image/svg+xml' => 'svg',
-            'image/gif' => 'gif',
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            default => 'dat',
-        };
-        $path = trim($directory, '/').'/'.Str::lower(Str::random(40)).'.'.$extension;
-        $contents = file_get_contents($file->getRealPath());
-        if ($contents === false || $contents === '' || ! Storage::disk('public')->put($path, $contents)) {
+        $path = $file->store(trim($directory, '/'), 'public');
+        if ($path === false || $path === '') {
             throw new RuntimeException('The uploaded image could not be saved.');
         }
 

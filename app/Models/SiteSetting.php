@@ -41,8 +41,14 @@ class SiteSetting extends Model
     {
         $settings = self::query()->pluck('value', 'key')->all();
 
-        if (! empty($settings['logo_path']) && ! self::isExternalPath($settings['logo_path']) && ! Storage::disk('public')->exists($settings['logo_path'])) {
-            $settings['logo_path'] = null;
+        foreach (['logo_path', 'login_background_path', 'hero_media_path'] as $key) {
+            if (! empty($settings[$key]) && ! self::isExternalPath($settings[$key]) && ! Storage::disk('public')->exists($settings[$key])) {
+                $settings[$key] = null;
+            }
+        }
+
+        if (empty($settings['hero_media_path'])) {
+            $settings['hero_media_type'] = null;
         }
 
         return array_merge(self::defaults(), array_intersect_key($settings, self::defaults()));
@@ -59,14 +65,14 @@ class SiteSetting extends Model
                 $key => [
                     'key' => $key,
                     'value' => $value,
-                    'inDatabase' => $value !== null,
-                    'existsOnDisk' => $value === null || self::isExternalPath($value) || Storage::disk('public')->exists($value),
+                    'inDatabase' => $value !== null && $value !== '',
+                    'existsOnDisk' => $value !== null && $value !== '' && (self::isExternalPath($value) || Storage::disk('public')->exists($value)),
                 ],
             ];
         })->all();
     }
 
-    private static function isExternalPath(string $path): bool
+    public static function isExternalPath(string $path): bool
     {
         return str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/');
     }

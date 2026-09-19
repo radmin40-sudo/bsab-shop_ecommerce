@@ -1,12 +1,14 @@
 import { optimizeImage } from '@/lib/image-upload';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Check,
     ChevronDown,
     FileText,
     Laptop,
+    Loader2,
     PencilLine,
     RefreshCw,
+    RotateCcw,
     Search,
     Server,
     ShieldAlert,
@@ -115,6 +117,12 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
     const [severity, setSeverity] = useState('all');
     const [status, setStatus] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+    const logoStorageStatus = storageStatus?.logo_path ?? {
+        key: 'logo_path',
+        value: siteSettings.logo_path ?? null,
+        inDatabase: Boolean(siteSettings.logo_path),
+        existsOnDisk: Boolean(siteSettings.logo_path),
+    };
     const loginStorageStatus = storageStatus?.login_background_path ?? {
         key: 'login_background_path',
         value: siteSettings.login_background_path ?? null,
@@ -127,6 +135,9 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         inDatabase: Boolean(siteSettings.hero_media_path),
         existsOnDisk: Boolean(siteSettings.hero_media_path),
     };
+    const [mediaUploading, setMediaUploading] = useState<'logo' | 'login_background' | 'hero_media' | null>(null);
+    const [mediaNotice, setMediaNotice] = useState<{ type: 'success' | 'error'; message: string; field: string } | null>(null);
+    const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
     const cacheForm = useForm({});
     const logsForm = useForm({});
     const categoriesForm = useForm({});
@@ -202,26 +213,104 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         homeForm.post(route('admin.settings.home-content'), { preserveScroll: true, forceFormData: true });
     }
 
-    function autoSaveMediaField(field: 'logo' | 'login_background' | 'hero_media', file: File | null, input?: HTMLInputElement | null) {
+    async function uploadMedia(field: 'logo' | 'login_background' | 'hero_media', file: File | null, input?: HTMLInputElement | null) {
         if (!file) {
             return;
         }
 
-        homeForm.setData(field, file);
-        homeForm.post(route('admin.settings.home-content'), {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => {
-                if (input) {
-                    input.value = '';
-                }
+        setMediaUploading(field);
+        setMediaNotice(null);
+
+        try {
+            const processedFile = file.type.startsWith('image/')
+                ? await optimizeImage(file, field === 'logo' ? { maxWidth: 1200, maxHeight: 1200 } : { maxWidth: 2000, maxHeight: 1200 })
+                : file;
+
+            router.post(
+                route('admin.settings.home-content'),
+                { [field]: processedFile },
+                {
+                    preserveScroll: true,
+                    forceFormData: true,
+                    onSuccess: () => {
+                        setMediaUploading(null);
+                        setMediaNotice({
+                            type: 'success',
+                            message: `${field === 'login_background' ? 'Login background' : field === 'hero_media' ? 'Hero media' : 'Logo'} saved successfully.`,
+                            field,
+                        });
+                        if (input) {
+                            input.value = '';
+                        }
+                        homeForm.setData(field, null);
+                        setBrokenImages((prev) => ({ ...prev, [field]: false }));
+                    },
+                    onError: (errs) => {
+                        setMediaUploading(null);
+                        const errorMsg =
+                            errs[field] ||
+                            (typeof errs === 'object' && Object.values(errs)[0]) ||
+                            'Upload failed. Please check the file format and size.';
+                        setMediaNotice({
+                            type: 'error',
+                            message: String(errorMsg),
+                            field,
+                        });
+                        if (input) {
+                            input.value = '';
+                        }
+                    },
+                },
+            );
+        } catch {
+            setMediaUploading(null);
+            setMediaNotice({
+                type: 'error',
+                message: 'Failed to process file before uploading.',
+                field,
+            });
+            if (input) {
+                input.value = '';
+            }
+        }
+    }
+
+    function resetMedia(field: 'logo' | 'login_background' | 'hero_media') {
+        const removeKey = field === 'logo' ? 'remove_logo' : field === 'login_background' ? 'remove_login_background' : 'remove_hero_media';
+        const label = field === 'login_background' ? 'login background' : field === 'hero_media' ? 'hero media' : 'brand logo';
+
+        if (!window.confirm(`Reset ${label} to the system default?`)) {
+            return;
+        }
+
+        setMediaUploading(field);
+        setMediaNotice(null);
+
+        router.post(
+            route('admin.settings.home-content'),
+            { [removeKey]: true },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setMediaUploading(null);
+                    setMediaNotice({
+                        type: 'success',
+                        message: `${field === 'login_background' ? 'Login background' : field === 'hero_media' ? 'Hero media' : 'Logo'} reset to default.`,
+                        field,
+                    });
+                    homeForm.setData(field, null);
+                    setBrokenImages((prev) => ({ ...prev, [field]: false }));
+                },
+                onError: () => {
+                    setMediaUploading(null);
+                    setMediaNotice({
+                        type: 'error',
+                        message: `Failed to reset ${label}.`,
+                        field,
+                    });
+                },
             },
-            onError: () => {
-                if (input) {
-                    input.value = '';
-                }
-            },
-        });
+        );
     }
 
     const filteredLogs = useMemo(
@@ -602,10 +691,11 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                             alt="Logo preview"
                                             className="h-full w-full object-cover"
                                         />
-                                    ) : siteSettings.logo_path ? (
+                                    ) : siteSettings.logo_path && !brokenImages.logo ? (
                                         <img
                                             src={`/storage/${siteSettings.logo_path}`}
                                             alt="Current brand logo"
+                                            onError={() => setBrokenImages((prev) => ({ ...prev, logo: true }))}
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
@@ -614,21 +704,55 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                         </span>
                                     )}
                                 </div>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                    onChange={async (event) => {
-                                        const input = event.target;
-                                        const file = input.files?.[0];
-                                        if (!file) {
-                                            return;
-                                        }
-
-                                        const optimizedFile = await optimizeImage(file, { maxWidth: 1200, maxHeight: 1200 });
-                                        autoSaveMediaField('logo', optimizedFile, input);
-                                    }}
-                                    className="w-full max-w-full text-sm sm:flex-1"
-                                />
+                                <div className="flex-1 space-y-2">
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                        disabled={mediaUploading === 'logo'}
+                                        onChange={(event) => {
+                                            const input = event.target;
+                                            const file = input.files?.[0] ?? null;
+                                            uploadMedia('logo', file, input);
+                                        }}
+                                        className="w-full max-w-full text-sm"
+                                    />
+                                    {mediaUploading === 'logo' && (
+                                        <div className="flex items-center gap-1.5 text-xs text-[#2c9350]">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving logo...
+                                        </div>
+                                    )}
+                                    {mediaNotice?.field === 'logo' && (
+                                        <div
+                                            className={`rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
+                                        >
+                                            {mediaNotice.message}
+                                        </div>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-2.5 py-1 ${logoStorageStatus.inDatabase ? (logoStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
+                                        >
+                                            {logoStorageStatus.inDatabase
+                                                ? logoStorageStatus.existsOnDisk
+                                                    ? 'Stored in database'
+                                                    : 'Missing from storage (404)'
+                                                : 'Using default logo'}
+                                        </span>
+                                        {logoStorageStatus.value && (
+                                            <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{logoStorageStatus.value}</span>
+                                        )}
+                                        {logoStorageStatus.inDatabase && (
+                                            <button
+                                                type="button"
+                                                onClick={() => resetMedia('logo')}
+                                                disabled={mediaUploading === 'logo'}
+                                                className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
+                                            >
+                                                <RotateCcw className="h-3 w-3" /> Reset to default
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -642,10 +766,11 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                             alt="Login background preview"
                                             className="h-full w-full object-cover"
                                         />
-                                    ) : siteSettings.login_background_path ? (
+                                    ) : siteSettings.login_background_path && !brokenImages.login_background ? (
                                         <img
                                             src={`/storage/${siteSettings.login_background_path}`}
                                             alt="Current login background"
+                                            onError={() => setBrokenImages((prev) => ({ ...prev, login_background: true }))}
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
@@ -657,26 +782,48 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp"
-                                    onChange={async (event) => {
+                                    disabled={mediaUploading === 'login_background'}
+                                    onChange={(event) => {
                                         const input = event.target;
-                                        const file = input.files?.[0];
-                                        if (!file) {
-                                            return;
-                                        }
-
-                                        const optimizedFile = await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 });
-                                        autoSaveMediaField('login_background', optimizedFile, input);
+                                        const file = input.files?.[0] ?? null;
+                                        uploadMedia('login_background', file, input);
                                     }}
                                     className="w-full max-w-full text-sm"
                                 />
+                                {mediaUploading === 'login_background' && (
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving background image...
+                                    </div>
+                                )}
+                                {mediaNotice?.field === 'login_background' && (
+                                    <div
+                                        className={`mt-2 rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
+                                    >
+                                        {mediaNotice.message}
+                                    </div>
+                                )}
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
                                     <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${loginStorageStatus.inDatabase ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]'}`}
+                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${loginStorageStatus.inDatabase ? (loginStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
                                     >
-                                        {loginStorageStatus.inDatabase ? 'Stored in database' : 'Not stored yet'}
+                                        {loginStorageStatus.inDatabase
+                                            ? loginStorageStatus.existsOnDisk
+                                                ? 'Stored in database'
+                                                : 'Missing from storage (404)'
+                                            : 'Using default'}
                                     </span>
                                     {loginStorageStatus.value && (
                                         <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{loginStorageStatus.value}</span>
+                                    )}
+                                    {loginStorageStatus.inDatabase && (
+                                        <button
+                                            type="button"
+                                            onClick={() => resetMedia('login_background')}
+                                            disabled={mediaUploading === 'login_background'}
+                                            className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
+                                        >
+                                            <RotateCcw className="h-3 w-3" /> Reset to default
+                                        </button>
                                     )}
                                 </div>
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">
@@ -703,13 +850,19 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                                 className="h-full w-full object-cover"
                                             />
                                         )
-                                    ) : siteSettings.hero_media_path ? (
+                                    ) : siteSettings.hero_media_path && !brokenImages.hero_media ? (
                                         siteSettings.hero_media_type === 'video' ? (
-                                            <video src={`/storage/${siteSettings.hero_media_path}`} controls className="h-full w-full object-cover" />
+                                            <video
+                                                src={`/storage/${siteSettings.hero_media_path}`}
+                                                controls
+                                                onError={() => setBrokenImages((prev) => ({ ...prev, hero_media: true }))}
+                                                className="h-full w-full object-cover"
+                                            />
                                         ) : (
                                             <img
                                                 src={`/storage/${siteSettings.hero_media_path}`}
                                                 alt="Current hero media"
+                                                onError={() => setBrokenImages((prev) => ({ ...prev, hero_media: true }))}
                                                 className="h-full w-full object-cover"
                                             />
                                         )
@@ -722,28 +875,48 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime"
-                                    onChange={async (event) => {
+                                    disabled={mediaUploading === 'hero_media'}
+                                    onChange={(event) => {
                                         const input = event.target;
-                                        const file = input.files?.[0];
-                                        if (!file) {
-                                            return;
-                                        }
-
-                                        const optimizedFile = file.type.startsWith('image/')
-                                            ? await optimizeImage(file, { maxWidth: 2000, maxHeight: 1200 })
-                                            : file;
-                                        autoSaveMediaField('hero_media', optimizedFile, input);
+                                        const file = input.files?.[0] ?? null;
+                                        uploadMedia('hero_media', file, input);
                                     }}
                                     className="w-full max-w-full text-sm"
                                 />
+                                {mediaUploading === 'hero_media' && (
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving hero media...
+                                    </div>
+                                )}
+                                {mediaNotice?.field === 'hero_media' && (
+                                    <div
+                                        className={`mt-2 rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
+                                    >
+                                        {mediaNotice.message}
+                                    </div>
+                                )}
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
                                     <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${heroStorageStatus.inDatabase ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]'}`}
+                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${heroStorageStatus.inDatabase ? (heroStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
                                     >
-                                        {heroStorageStatus.inDatabase ? 'Stored in database' : 'Not stored yet'}
+                                        {heroStorageStatus.inDatabase
+                                            ? heroStorageStatus.existsOnDisk
+                                                ? 'Stored in database'
+                                                : 'Missing from storage (404)'
+                                            : 'Using default'}
                                     </span>
                                     {heroStorageStatus.value && (
                                         <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{heroStorageStatus.value}</span>
+                                    )}
+                                    {heroStorageStatus.inDatabase && (
+                                        <button
+                                            type="button"
+                                            onClick={() => resetMedia('hero_media')}
+                                            disabled={mediaUploading === 'hero_media'}
+                                            className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
+                                        >
+                                            <RotateCcw className="h-3 w-3" /> Reset to default
+                                        </button>
                                     )}
                                 </div>
                                 <p className="mt-2 text-[11px] font-normal text-[#789184]">

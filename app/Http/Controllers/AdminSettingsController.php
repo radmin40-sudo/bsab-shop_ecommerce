@@ -203,11 +203,36 @@ class AdminSettingsController extends Controller
             'newsletter_placeholder' => ['nullable', 'string', 'max:255'],
         ]);
 
+        if ($request->boolean('remove_logo')) {
+            $existingPath = SiteSetting::where('key', 'logo_path')->value('value');
+            if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
+                Storage::disk('public')->delete($existingPath);
+            }
+            SiteSetting::updateOrCreate(['key' => 'logo_path'], ['value' => null]);
+        }
+
+        if ($request->boolean('remove_login_background')) {
+            $existingPath = SiteSetting::where('key', 'login_background_path')->value('value');
+            if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
+                Storage::disk('public')->delete($existingPath);
+            }
+            SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => null]);
+        }
+
+        if ($request->boolean('remove_hero_media')) {
+            $existingPath = SiteSetting::where('key', 'hero_media_path')->value('value');
+            if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
+                Storage::disk('public')->delete($existingPath);
+            }
+            SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => null]);
+            SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => null]);
+        }
+
         foreach ($data as $key => $value) {
             if ($key === 'logo') {
-                $existingPath = SiteSetting::where('key', 'logo_path')->value('value');
                 if ($request->hasFile('logo')) {
-                    if ($existingPath) {
+                    $existingPath = SiteSetting::where('key', 'logo_path')->value('value');
+                    if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
                         Storage::disk('public')->delete($existingPath);
                     }
                     $path = $images->store($request->file('logo'), 'site', ['max_dimension' => config('images.logo_max_dimension')]);
@@ -218,9 +243,9 @@ class AdminSettingsController extends Controller
             }
 
             if ($key === 'hero_media') {
-                $existingPath = SiteSetting::where('key', 'hero_media_path')->value('value');
                 if ($request->hasFile('hero_media')) {
-                    if ($existingPath) {
+                    $existingPath = SiteSetting::where('key', 'hero_media_path')->value('value');
+                    if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
                         Storage::disk('public')->delete($existingPath);
                     }
                     $file = $request->file('hero_media');
@@ -239,9 +264,9 @@ class AdminSettingsController extends Controller
             }
 
             if ($key === 'login_background') {
-                $existingPath = SiteSetting::where('key', 'login_background_path')->value('value');
                 if ($request->hasFile('login_background')) {
-                    if ($existingPath) {
+                    $existingPath = SiteSetting::where('key', 'login_background_path')->value('value');
+                    if ($existingPath && ! SiteSetting::isExternalPath($existingPath)) {
                         Storage::disk('public')->delete($existingPath);
                     }
                     $path = $images->store($request->file('login_background'), 'site', [
@@ -251,6 +276,10 @@ class AdminSettingsController extends Controller
                     SiteSetting::updateOrCreate(['key' => 'login_background_path'], ['value' => $path]);
                 }
 
+                continue;
+            }
+
+            if (! $request->has($key)) {
                 continue;
             }
 
