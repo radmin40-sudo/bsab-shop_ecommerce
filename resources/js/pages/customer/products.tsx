@@ -1,5 +1,5 @@
-import { Head, router } from '@inertiajs/react';
-import { Check, ChevronLeft, Heart, Home, Package, Search, ShoppingCart, SlidersHorizontal, User } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Check, ChevronLeft, Grid2X2, Heart, Home, Package, Search, ShoppingCart, SlidersHorizontal, User, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import '../../../css/design.css';
@@ -14,6 +14,12 @@ type Product = {
     base_price: string;
     sale_price?: string | null;
     stock_quantity: number;
+    available_stock?: number;
+    is_out_of_stock?: boolean;
+    average_rating?: number;
+    review_count?: number;
+    selling_unit?: string | null;
+    is_favorited?: boolean;
     category?: { name: string; slug: string } | null;
     shop?: { name: string } | null;
     images?: { path: string }[];
@@ -21,12 +27,22 @@ type Product = {
 
 /* ─── Page ───────────────────────────────────────────────── */
 export default function CustomerProducts({ products = [], categories = [] }: { products?: Product[]; categories?: Category[] }) {
+    const { auth } = usePage<{ auth: { user: { id: number } | null } }>().props;
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('all');
-    const [favorites, setFavorites] = useState<number[]>([]);
+    const [favorites, setFavorites] = useState<number[]>(() => products.filter((p) => p.is_favorited).map((p) => p.id));
     const [sort, setSort] = useState('latest');
     const [popoverOpen, setPopoverOpen] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
+
+    function toggleFavorite(productId: number) {
+        if (!auth?.user) {
+            router.visit(route('login'));
+            return;
+        }
+        setFavorites((cur) => (cur.includes(productId) ? cur.filter((id) => id !== productId) : [...cur, productId]));
+        router.post(route('customer.favorites.toggle', productId), {}, { preserveScroll: true });
+    }
 
     /* Close popover on outside click */
     useEffect(() => {
@@ -80,10 +96,10 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
                         />
                     </div>
 
-                    <button className="icon-btn accent" aria-label="Cart">
+                    <Link href="/customer/cart" className="icon-btn accent" aria-label="Cart">
                         <ShoppingCart size={20} />
                         <span className="cart-badge">0</span>
-                    </button>
+                    </Link>
                 </div>
 
                 {/* ── Title row ───────────────────────────── */}
@@ -149,9 +165,7 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
                                     key={product.id}
                                     product={product}
                                     liked={liked}
-                                    onToggleFavorite={() =>
-                                        setFavorites((cur) => (liked ? cur.filter((id) => id !== product.id) : [...cur, product.id]))
-                                    }
+                                    onToggleFavorite={() => toggleFavorite(product.id)}
                                     onOpenProduct={() => router.visit(route('products.show', product.id))}
                                 />
                             );
@@ -164,26 +178,26 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
 
             {/* ── Bottom nav (mobile/tablet only) ────────── */}
             <nav className="bottom-nav">
-                <a href="/" className="bottom-nav-item">
+                <Link href="/" className="bottom-nav-item">
                     <Home size={22} />
                     <span>Home</span>
-                </a>
-                <a href="/customer/products" className="bottom-nav-item active">
-                    <Package size={22} />
+                </Link>
+                <Link href="/customer/products" className="bottom-nav-item active">
+                    <Grid2X2 size={22} />
                     <span>Products</span>
-                </a>
-                <a href="/customer/favorites" className="bottom-nav-item">
+                </Link>
+                <Link href="/customer/favorites" className="bottom-nav-item">
                     <Heart size={22} />
                     <span>Favorites</span>
-                </a>
-                <a href="/customer/cart" className="bottom-nav-item">
+                </Link>
+                <Link href="/customer/cart" className="bottom-nav-item">
                     <ShoppingCart size={22} />
                     <span>Cart</span>
-                </a>
-                <a href="/customer/account" className="bottom-nav-item">
-                    <User size={22} />
-                    <span>Account</span>
-                </a>
+                </Link>
+                <Link href="/customer/profile" className="bottom-nav-item">
+                    <UserRound size={22} />
+                    <span>Profile</span>
+                </Link>
             </nav>
         </>
     );

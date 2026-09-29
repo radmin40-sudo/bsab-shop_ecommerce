@@ -18,11 +18,27 @@ class PasswordController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $data = $request->validate(['current_password' => ['required', 'current_password'], 'password' => ['required', 'confirmed', Password::defaults()]]);
+        $rules = ['password' => ['required', 'confirmed', Password::defaults()]];
+
+        if (! $request->user()->hasAnyRole(['admin', 'seller'])) {
+            $rules['current_password'] = ['required', 'current_password'];
+        }
+
+        $data = $request->validate($rules);
         $request->user()->update(['password' => Hash::make($data['password'])]);
 
-        return $request->user()->hasRole('admin')
-            ? to_route('admin.profile')
-            : to_route('user-password.edit');
+        if ($request->user()->hasRole('admin')) {
+            return to_route('admin.profile');
+        }
+
+        if ($request->user()->hasRole('seller')) {
+            return to_route('seller.profile');
+        }
+
+        if ($request->user()->hasRole('customer')) {
+            return to_route('customer.profile');
+        }
+
+        return to_route('user-password.edit');
     }
 }

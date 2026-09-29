@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowUpRight, BarChart3, Box, CircleDollarSign, Clock3, Package, Plus, Store, Users } from 'lucide-react';
 
 type DashboardProps = {
-    metrics: { grossSales: number; salesChange: number | null; orders: number; awaitingOrders: number; activeSellers: number; newSellers: number; customers: number; newCustomers: number; products: number; pendingProducts: number; categories: number; vouchers: number };
+    metrics: { grossSales: number; salesChange: number | null; orders: number; awaitingOrders: number; activeSellers: number; newSellers: number; customers: number; newCustomers: number; products: number; pendingProducts: number; categories: number };
     chart: { label: string; sales: number; orders: number }[];
     orderStatuses: { status: string; total: number }[];
     topCategories: { id: number; name: string; products_count: number }[];
@@ -33,7 +33,6 @@ export default function AdminDashboard({ metrics, chart, orderStatuses, topCateg
         ['Products', metrics.products, '/admin/products', Box],
         ['Pending review', metrics.pendingProducts, '/admin/products', Clock3],
         ['Categories', metrics.categories, '/admin/categories', Store],
-        ['Vouchers', metrics.vouchers, '/admin/vouchers', CircleDollarSign],
     ] as const;
 
     return (

@@ -81,6 +81,7 @@ type LogEntry = {
     role: string | null;
     method: string | null;
     route: string | null;
+    requestSource: 'web' | 'console' | null;
     statusCode: number | null;
     ip: string | null;
     device: string | null;
@@ -144,7 +145,6 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
     const categoriesForm = useForm({});
     const productsForm = useForm({});
     const ordersForm = useForm({});
-    const vouchersForm = useForm({});
     const homeForm = useForm({
         brand_name: siteSettings.brand_name ?? 'BSABShop',
         logo: null as File | null,
@@ -199,13 +199,6 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         event.preventDefault();
         if (window.confirm('Permanently delete all orders, including archived orders? This cannot be undone.')) {
             ordersForm.post(route('admin.settings.orders.clear'), { preserveScroll: true });
-        }
-    }
-
-    function clearVouchers(event: FormEvent) {
-        event.preventDefault();
-        if (window.confirm('Delete all vouchers and their redemptions? This cannot be undone.')) {
-            vouchersForm.post(route('admin.settings.vouchers.clear'), { preserveScroll: true });
         }
     }
 
@@ -533,9 +526,15 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                                 )}
                                             </span>
                                             <span className="mt-2 block min-w-0 text-xs text-[#52665a] md:mt-0">
-                                                <span className="block truncate">{entry.device ?? 'Server'}</span>
+                                                <span className="block truncate">
+                                                    {entry.device ?? (entry.requestSource === 'console' ? 'Command line' : 'Not captured')}
+                                                </span>
                                                 <span className="block truncate text-[11px] text-[#8a998e]">
-                                                    {entry.ip ? `IP ${entry.ip}` : 'No network data'}
+                                                    {entry.ip
+                                                        ? `IP ${entry.ip}`
+                                                        : entry.requestSource === 'console'
+                                                          ? 'No client IP (console)'
+                                                          : 'No IP captured'}
                                                 </span>
                                             </span>
                                             <span className="mt-2 hidden text-xs text-[#52665a] md:block">{formatDate(entry.timestamp)}</span>
@@ -1123,30 +1122,6 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     className="inline-flex items-center gap-2 rounded-lg border border-[#eccac3] px-3.5 py-2 text-sm font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
                                 >
                                     <Trash2 size={15} /> {ordersForm.processing ? 'Deleting orders...' : 'Delete all orders'}
-                                </button>
-                            </form>
-                        </div>
-
-                        <div className="rounded-xl border border-[#f0ddd8] bg-[#fffaf8] p-4">
-                            <div className="flex items-center gap-3">
-                                <span className="rounded-lg bg-white p-2 text-[#b9574a]">
-                                    <Tag size={18} />
-                                </span>
-                                <div>
-                                    <p className="text-[11px] font-bold tracking-[0.18em] text-[#a86618] uppercase">Vouchers</p>
-                                    <h3 className="font-display text-lg font-bold text-[#173b27]">Clear voucher codes</h3>
-                                </div>
-                            </div>
-                            <p className="mt-3 text-sm leading-6 text-[#6a7c70]">
-                                Remove every voucher code and its redemption history from the marketplace.
-                            </p>
-                            <form onSubmit={clearVouchers} className="mt-4">
-                                <button
-                                    type="submit"
-                                    disabled={vouchersForm.processing}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-[#eccac3] px-3.5 py-2 text-sm font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
-                                >
-                                    <Trash2 size={15} /> {vouchersForm.processing ? 'Deleting vouchers...' : 'Delete all vouchers'}
                                 </button>
                             </form>
                         </div>

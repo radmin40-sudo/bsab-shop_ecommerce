@@ -1,0 +1,152 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Shop;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\User;
+use App\Models\Voucher;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
+class VoucherManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_seller_cannot_modify_another_sellers_voucher(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create();
+        $seller->assignRole('seller');
+        $sellerShop = $this->makeShop($seller, 'seller-one');
+        $otherSeller = User::factory()->create();
+        $otherShop = $this->makeShop($otherSeller, 'seller-two');
+        $voucher = Voucher::create([
+            'seller_id' => $otherShop->id,
+            'name' => 'Other seller offer',
+            'code' => 'OTHER100',
+            'type' => 'fixed',
+            'discount_value' => 100,
+            'apply_to' => 'all',
+            'customer_eligibility' => 'all',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($seller)
+            ->patch(route('seller.vouchers.update', $voucher), [
+                'name' => 'Hijacked offer',
+                'code' => 'HIJACK100',
+                'type' => 'fixed',
+                'discount_value' => 100,
+                'apply_to' => 'all',
+                'customer_eligibility' => 'all',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('Other seller offer', $voucher->fresh()->name);
+        $this->assertSame($sellerShop->id !== $otherShop->id, true);
+    }
+
+    public function test_customer_can_claim_a_claim_required_voucher_only_once(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $voucher = Voucher::create([
+            'name' => 'Claim first offer',
+            'code' => 'CLAIM100',
+            'type' => 'fixed',
+            'discount_value' => 100,
+            'apply_to' => 'all',
+            'customer_eligibility' => 'all',
+            'requires_claim' => true,
+            'claim_limit' => 10,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson("/api/customer/vouchers/{$voucher->id}/claim")
+            ->assertCreated();
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson("/api/customer/vouchers/{$voucher->id}/claim")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('voucher');
+
+        $this->assertDatabaseCount('voucher_claims', 1);
+    }
+
+    public function test_seller_can_create_voucher_only_for_products_in_their_shop(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create();
+        $seller->assignRole('seller');
+        $shop = $this->makeShop($seller, 'seller-voucher-shop');
+        $otherSeller = User::factory()->create();
+        $otherShop = $this->makeShop($otherSeller, 'other-voucher-shop');
+        $category = Category::create(['name' => 'Voucher test', 'slug' => 'voucher-test-category']);
+        $owned = $this->makeProduct($shop, $category, 'Owned item');
+        $notOwned = $this->makeProduct($otherShop, $category, 'Other item');
+
+        $this->actingAs($seller)
+            ->from('/seller/vouchers')
+            ->post(route('seller.vouchers.store'), [
+                'name' => 'Seller offer',
+                'code' => 'seller100',
+                'type' => 'fixed',
+                'discount_value' => 100,
+                'minimum_spend' => 0,
+                'apply_to' => 'products',
+                'customer_eligibility' => 'all',
+                'is_active' => true,
+                'product_ids' => [$owned->id, $notOwned->id],
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('vouchers', ['code' => 'SELLER100']);
+
+        $this->actingAs($seller)
+            ->from('/seller/vouchers')
+            ->post(route('seller.vouchers.store'), [
+                'name' => 'Seller offer',
+                'code' => 'seller100',
+                'type' => 'fixed',
+                'discount_value' => 100,
+                'minimum_spend' => 0,
+                'apply_to' => 'products',
+                'customer_eligibility' => 'all',
+                'is_active' => true,
+                'product_ids' => [$owned->id],
+            ])
+            ->assertRedirect('/seller/vouchers');
+
+        $voucher = Voucher::where('code', 'SELLER100')->firstOrFail();
+        $this->assertSame($shop->id, $voucher->seller_id);
+        $this->assertSame([$owned->id], $voucher->products()->pluck('products.id')->all());
+    }
+
+    private function makeShop(User $user, string $slug): Shop
+    {
+        return Shop::create(['user_id' => $user->id, 'name' => $slug, 'slug' => $slug]);
+    }
+
+    private function makeProduct(Shop $shop, Category $category, string $name): Product
+    {
+        return Product::create([
+            'shop_id' => $shop->id,
+            'seller_id' => $shop->id,
+            'category_id' => $category->id,
+            'name' => $name,
+            'slug' => strtolower(str_replace(' ', '-', $name)).'-'.uniqid(),
+            'description' => $name,
+            'base_price' => 100,
+            'sku' => strtoupper(substr($name, 0, 3)).'-'.uniqid(),
+            'stock_quantity' => 10,
+            'status' => 'published',
+            'is_active' => true,
+            'is_approved' => true,
+        ]);
+    }
+}

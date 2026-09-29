@@ -67,7 +67,6 @@ class AdminDashboardController extends Controller
                 'products' => Product::query()->count(),
                 'pendingProducts' => Product::query()->where('is_approved', false)->count(),
                 'categories' => Category::query()->count(),
-                'vouchers' => \App\Models\Voucher::query()->count(),
             ],
             'chart' => $chart,
             'orderStatuses' => $statusCounts->map(fn ($total, $status) => ['status' => $status, 'total' => (int) $total])->values(),

@@ -1,11 +1,18 @@
 {
-    "name": "Common Ground Marketplace",
-    "short_name": "Common Ground",
-    "description": "A considered marketplace for independent makers.",
-    "theme_color": "#1e2420",
-    "background_color": "#f7f6f2",
+    "id": "/",
+    "name": "BSAB-SHOP",
+    "short_name": "BSAB-SHOP",
+    "description": "Quality Products. Better You.",
+    "theme_color": "#1f7a42",
+    "background_color": "#f7fbf7",
     "display": "standalone",
     "orientation": "portrait",
     "start_url": "/",
-    "scope": "/"
+    "scope": "/",
+    "icons": [
+        { "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/pwa-icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "/pwa-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
 }

@@ -3,14 +3,14 @@
 
 /* ─── Design tokens ─────────────────────────────────────── */
 :root {
-    --bg: #FFFFFF;
-    --surface: #F4F4F7;
-    --ink: #18181B;
-    --ink-soft: #9A9AA5;
-    --line: #EFEFF3;
-    --accent: #4CAF7D;
-    --accent-soft: #E4F5EA;
-    --accent-deep: #3B8F65;
+    --bg: #ffffff;
+    --surface: #f4f4f7;
+    --ink: #18181b;
+    --ink-soft: #9a9aa5;
+    --line: #efeff3;
+    --accent: #4caf7d;
+    --accent-soft: #e4f5ea;
+    --accent-deep: #3b8f65;
     --radius-lg: 20px;
     --radius-md: 14px;
 }
@@ -71,7 +71,7 @@ input {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: opacity .15s;
+    transition: opacity 0.15s;
 }
 
 .icon-btn:focus-visible {
@@ -85,9 +85,14 @@ input {
 }
 
 .icon-btn.accent {
-    background: var(--accent);
-    color: #fff;
+    background: transparent;
+    color: var(--ink);
+    border: none;
     position: relative;
+}
+
+.icon-btn.accent:hover {
+    background: rgba(44, 147, 80, 0.08);
 }
 
 .icon-btn.ghost {
@@ -98,21 +103,21 @@ input {
 }
 
 .icon-btn:hover {
-    opacity: .82;
+    opacity: 0.82;
 }
 
 /* Cart badge */
 .cart-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #fff;
-    color: var(--accent);
-    border: 1.5px solid var(--accent);
+    top: -2px;
+    right: -2px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
     font-size: 10px;
     font-weight: 700;
-    min-width: 18px;
-    height: 18px;
+    min-width: 17px;
+    height: 17px;
     border-radius: 999px;
     display: flex;
     align-items: center;
@@ -192,7 +197,7 @@ input {
     z-index: 40;
     background: #fff;
     border-radius: 16px;
-    box-shadow: 0 10px 32px rgba(20, 20, 30, .13);
+    box-shadow: 0 10px 32px rgba(20, 20, 30, 0.13);
     width: 248px;
     padding: 16px;
     display: none;
@@ -205,7 +210,7 @@ input {
 .popover h3 {
     font-size: 11.5px;
     text-transform: uppercase;
-    letter-spacing: .06em;
+    letter-spacing: 0.06em;
     color: var(--ink-soft);
     margin: 0 0 10px;
     font-weight: 700;
@@ -272,7 +277,9 @@ input {
     background: var(--surface);
     color: var(--ink-soft);
     white-space: nowrap;
-    transition: background .15s, color .15s;
+    transition:
+        background 0.15s,
+        color 0.15s;
 }
 
 .chip.active {
@@ -311,9 +318,9 @@ input {
     }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1200px) {
     .grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
     }
 }
 
@@ -329,37 +336,46 @@ input {
 
 /* ─── Product card ──────────────────────────────────────── */
 .card {
+    display: flex;
+    flex-direction: column;
     background: #fff;
-    border-radius: var(--radius-lg);
-    box-shadow: 0 2px 10px rgba(20, 20, 30, .06);
-    overflow: visible;
-    transition: transform .25s;
+    border: 1px solid #e4ece5;
+    border-radius: 18px;
+    box-shadow: 0 3px 12px rgba(22, 59, 36, 0.05);
+    overflow: hidden;
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+    cursor: pointer;
 }
 
 .card:hover {
     transform: translateY(-3px);
+    box-shadow: 0 8px 22px rgba(22, 59, 36, 0.08);
 }
 
 .card.sold .card-media {
-    opacity: .5;
+    opacity: 0.72;
 }
 
 /* Image area */
 .card-media {
     position: relative;
-    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
-    aspect-ratio: 1 / 1.05;
-    background: var(--surface);
+    aspect-ratio: 1 / 1;
+    background: #f1f5f1;
 }
 
 .card-media img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-/* Placeholder initials */
 .ph {
     position: absolute;
     inset: 0;
@@ -368,41 +384,47 @@ input {
     justify-content: center;
     font-size: 13px;
     font-weight: 700;
-    color: #C7C7CF;
-    letter-spacing: .04em;
+    color: #c7c7cf;
+    letter-spacing: 0.04em;
 }
 
-/* Discount tag */
 .discount-tag {
     position: absolute;
     top: 10px;
     left: 10px;
-    background: var(--accent);
+    border-radius: 999px;
+    background: #2c9350;
     color: #fff;
-    font-size: 10.5px;
+    font-size: 9px;
     font-weight: 700;
-    padding: 4px 9px;
-    border-radius: 8px;
+    padding: 4px 7px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
-/* Favorite button */
 .fav-chip {
     position: absolute;
     top: 10px;
     right: 10px;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .92);
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--ink-soft);
-    transition: color .15s;
+    color: #647568;
+    box-shadow: none;
+    transition: transform 0.15s, color 0.15s;
+}
+
+.fav-chip:hover {
+    transform: scale(1.15);
 }
 
 .fav-chip.active {
-    color: var(--accent);
+    color: #2c9350;
 }
 
 .fav-chip:focus-visible {
@@ -412,98 +434,91 @@ input {
 
 /* Card body */
 .card-body {
-    padding: 14px 12px 12px;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 10px 10px 12px;
 }
 
 .card-shop {
-    font-size: 11px;
-    color: var(--ink-soft);
-    margin: 0 0 3px;
-    font-weight: 500;
+    display: inline-block;
+    margin: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2c9350;
 }
 
 .card-name {
-    font-size: 13.5px;
+    margin: 5px 0 0;
+    font-size: 13px;
     font-weight: 600;
-    margin: 0 0 8px;
+    line-height: 1.4;
+    color: #1c2d23;
+    min-height: 2.7em;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--ink);
 }
 
-/* Price row */
-.price-row {
+.rating-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 10px;
+    color: #5c6e63;
+}
+
+.rating-stars {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    color: #f3b33d;
+}
+
+.rating-score {
+    font-weight: 600;
+    color: #2d3d36;
+}
+
+.rating-count {
+    color: #91a197;
+}
+
+.price-row {
+    margin-top: auto;
+    padding-top: 10px;
 }
 
 .price-group {
     display: flex;
     align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-    overflow: hidden;
+    gap: 5px;
+    flex-wrap: wrap;
 }
 
 .price {
     font-size: 15px;
     font-weight: 800;
-    color: var(--accent-deep);
-    white-space: nowrap;
+    color: #16804a;
+    letter-spacing: -0.02em;
 }
 
-.price-old {
-    font-size: 11px;
-    color: var(--ink-soft);
-    text-decoration: line-through;
-    white-space: nowrap;
-}
-
-/* Add-to-cart button */
-.add-chip {
-    flex-shrink: 0;
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 20px;
+.unit {
+    font-size: 10px;
     font-weight: 500;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background .15s;
+    color: #789184;
 }
 
-.add-chip:hover {
-    background: var(--accent-deep);
-}
-
-.add-chip:focus-visible {
-    outline: 2px solid var(--accent-deep);
-    outline-offset: 2px;
-}
-
-/* Sold out pill */
-.sold-label {
-    background: var(--surface);
-    color: var(--ink-soft);
-    font-size: 10.5px;
-    font-weight: 700;
-    padding: 6px 12px;
-    border-radius: 999px;
-    white-space: nowrap;
-}
-
-/* Stock note */
 .stock-note {
-    font-size: 10.5px;
-    color: var(--ink-soft);
-    margin-top: 5px;
+    margin: 8px 0 0;
+    font-size: 10px;
+    font-weight: 500;
+    color: #789184;
+}
+
+.stock-note.out {
+    color: #b45b4d;
 }
 
 /* ─── Bottom navigation bar (mobile + tablet) ───────────── */
@@ -516,7 +531,7 @@ input {
     z-index: 50;
     background: #fff;
     border-top: 1px solid var(--line);
-    box-shadow: 0 -4px 20px rgba(20, 20, 30, .07);
+    box-shadow: 0 -4px 20px rgba(20, 20, 30, 0.07);
     padding-bottom: env(safe-area-inset-bottom, 0px); /* iPhone notch */
 }
 
@@ -532,13 +547,13 @@ input {
     text-decoration: none;
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: .01em;
-    transition: color .15s;
+    letter-spacing: 0.01em;
+    transition: color 0.15s;
 }
 
 .bottom-nav-item svg {
     flex-shrink: 0;
-    transition: color .15s;
+    transition: color 0.15s;
 }
 
 .bottom-nav-item.active,
@@ -548,10 +563,14 @@ input {
 
 /* Add bottom padding to .wrap so content isn't hidden behind the nav */
 @media (max-width: 1023px) {
-    .wrap { padding-bottom: 80px; }
+    .wrap {
+        padding-bottom: 80px;
+    }
 }
 
 /* Hide bottom nav on desktop */
 @media (min-width: 1024px) {
-    .bottom-nav { display: none; }
+    .bottom-nav {
+        display: none;
+    }
 }

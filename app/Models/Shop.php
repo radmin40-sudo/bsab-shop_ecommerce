@@ -42,4 +42,9 @@ class Shop extends Model
     {
         return $this->hasMany(SellerFollow::class, 'seller_id');
     }
+
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'voucher_sellers', 'seller_id', 'voucher_id')->withTimestamps();
+    }
 }

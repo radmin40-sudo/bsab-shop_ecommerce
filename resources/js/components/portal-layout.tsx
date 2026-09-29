@@ -20,9 +20,8 @@ import {
     ShoppingCart,
     Sparkles,
     Store,
-    Tag,
     Tags,
-    Ticket,
+    TicketPercent,
     UserRound,
     Users,
     UsersRound,
@@ -39,11 +38,11 @@ const navigation: Record<PortalRole, NavigationItem[]> = {
         { label: 'Products', href: '/admin/products', icon: Package },
         { label: 'Orders', href: '/admin/orders', icon: ClipboardList },
         { label: 'Categories', href: '/admin/categories', icon: Tags },
-        { label: 'Vouchers', href: '/admin/vouchers', icon: Ticket },
         { label: 'Sellers', href: '/admin/sellers', icon: Store },
         { label: 'Customers', href: '/admin/customers', icon: Users },
         { label: 'Users', href: '/admin/users', icon: UserRound },
         { label: 'Profile', href: '/admin/profile', icon: CircleUserRound },
+        { label: 'Vouchers', href: '/admin/vouchers', icon: TicketPercent },
         { label: 'Settings', href: '/admin/settings', icon: Settings },
     ],
     seller: [
@@ -52,13 +51,14 @@ const navigation: Record<PortalRole, NavigationItem[]> = {
         { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
         { label: 'Profile', href: '/seller/profile', icon: CircleUserRound },
         { label: 'Shop Profile', href: '/seller/shop', icon: Store },
-        { label: 'Vouchers', href: '/seller/vouchers', icon: Tag },
+        { label: 'Vouchers', href: '/seller/vouchers', icon: TicketPercent },
     ],
     customer: [
-        { label: 'Account', href: '/customer/profile', icon: CircleUserRound },
-        { label: 'Products', href: '/customer/products', icon: Tag },
+        { label: 'Profile', href: '/customer/profile', icon: CircleUserRound },
+        { label: 'Products', href: '/customer/products', icon: Tags },
         { label: 'Favorites', href: '/customer/favorites', icon: Heart },
         { label: 'My orders', href: '/customer/orders', icon: Package },
+        { label: 'My vouchers', href: '/customer/vouchers', icon: TicketPercent },
         { label: 'Cart', href: '/customer/cart', icon: ShoppingCart },
         { label: 'Profile', href: '/customer/profile', icon: Settings },
     ],
@@ -70,7 +70,6 @@ const adminNavigationGroups: { label: string; items: NavigationItem[] }[] = [
         { label: 'Products', href: '/admin/products', icon: Package },
         { label: 'Orders', href: '/admin/orders', icon: ClipboardList },
         { label: 'Categories', href: '/admin/categories', icon: Tags },
-        { label: 'Vouchers', href: '/admin/vouchers', icon: Ticket },
     ],
     [
         { label: 'Sellers', href: '/admin/sellers', icon: Store },
@@ -79,6 +78,7 @@ const adminNavigationGroups: { label: string; items: NavigationItem[] }[] = [
     ],
     [
         { label: 'Profile', href: '/admin/profile', icon: CircleUserRound },
+        { label: 'Vouchers', href: '/admin/vouchers', icon: TicketPercent },
         { label: 'Settings', href: '/admin/settings', icon: Settings },
     ],
 ].map((items, index) => ({
@@ -94,7 +94,6 @@ const sellerNavigationGroups: { id: string; label: string; items: NavigationItem
         items: [
             { label: 'Products', href: '/seller/products', icon: Package },
             { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
-            { label: 'Vouchers', href: '/seller/vouchers', icon: Tag },
         ],
     },
     {
@@ -103,6 +102,7 @@ const sellerNavigationGroups: { id: string; label: string; items: NavigationItem
         items: [
             { label: 'Profile', href: '/seller/profile', icon: CircleUserRound },
             { label: 'Shop Profile', href: '/seller/shop', icon: Store },
+            { label: 'Vouchers', href: '/seller/vouchers', icon: TicketPercent },
         ],
     },
 ];
@@ -367,7 +367,13 @@ function CustomerLayout({
         { label: 'Products', href: '/customer/products', icon: Grid2X2 },
         { label: 'Favorites', href: '/customer/favorites', icon: Heart },
         { label: 'Cart', href: '/customer/cart', icon: ShoppingCart },
-        { label: 'Account', href: '/customer/account', icon: UserRound },
+        { label: 'Profile', href: '/customer/profile', icon: UserRound },
+    ];
+    const desktopCustomerLinks = [
+        { label: 'Home', href: '/', icon: Home },
+        { label: 'Products', href: '/customer/products', icon: Grid2X2 },
+        { label: 'Orders', href: '/customer/orders', icon: Package },
+        { label: 'Favorites', href: '/customer/favorites', icon: Heart },
     ];
 
     function isActiveLink(href: string) {
@@ -415,7 +421,7 @@ function CustomerLayout({
                                         href="/customer/profile"
                                         className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                     >
-                                        <UserRound size={16} /> Account
+                                        <UserRound size={16} /> Profile
                                     </Link>
                                     <Link
                                         href="/customer/settings"
@@ -442,7 +448,7 @@ function CustomerLayout({
                             <span className="font-display text-xl font-bold text-[#1b4332]">BSABShop</span>
                         </Link>
                         <nav className="hidden items-center gap-1 sm:ml-auto lg:flex" aria-label="Customer navigation">
-                            {customerLinks.slice(0, 4).map((item) => {
+                            {desktopCustomerLinks.map((item) => {
                                 const Icon = item.icon;
                                 const active = isActiveLink(item.href);
                                 return (
@@ -477,7 +483,7 @@ function CustomerLayout({
                         <div className="order-1 ml-auto hidden items-center justify-end gap-2 sm:order-2 sm:ml-5 lg:order-3 lg:ml-0 lg:flex">
                             <Link
                                 href="/customer/cart"
-                                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#def0e2] bg-white text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                 aria-label="Open cart"
                             >
                                 <ShoppingCart size={17} />
@@ -485,7 +491,7 @@ function CustomerLayout({
                             <div className="relative">
                                 <button
                                     onClick={() => setAccountOpen(!accountOpen)}
-                                    className="flex items-center gap-2 rounded-full border border-[#def0e2] bg-white px-2.5 py-1.5 text-[#1b4332] shadow-sm transition hover:bg-[#f5fcf7]"
+                                    className="flex items-center gap-2 rounded-full bg-transparent px-2.5 py-1.5 text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                     aria-label="Open account menu"
                                 >
                                     <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#52b788] text-[10px] font-bold text-[#1b4332]">
@@ -511,7 +517,7 @@ function CustomerLayout({
                                             href="/customer/profile"
                                             className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                         >
-                                            <UserRound size={16} /> Account
+                                            <UserRound size={16} /> Profile
                                         </Link>
                                         <Link
                                             href="/customer/settings"
@@ -584,13 +590,11 @@ export function StatCard({
                 ? Store
                 : labelKey.includes('customer') || labelKey.includes('user') || labelKey.includes('account')
                   ? UsersRound
-                  : labelKey.includes('voucher') || labelKey.includes('code')
-                    ? Ticket
-                    : labelKey.includes('product') || labelKey.includes('stock')
-                      ? Box
-                      : labelKey.includes('categor')
-                        ? Tag
-                        : BarChart3;
+                  : labelKey.includes('product') || labelKey.includes('stock')
+                    ? Box
+                    : labelKey.includes('categor')
+                      ? Tags
+                      : BarChart3;
 
     return (
         <div className="rounded-[20px] border border-[#def0e2] bg-white p-5 shadow-[0_6px_20px_rgba(22,59,36,0.08)]">

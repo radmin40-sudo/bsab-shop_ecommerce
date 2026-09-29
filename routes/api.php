@@ -4,11 +4,12 @@ use App\Http\Controllers\Api\AdminOrderController;
 use App\Http\Controllers\Api\AdminSellerController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CustomerCartController;
+use App\Http\Controllers\Api\CustomerVoucherController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SellerProductController;
-use App\Http\Controllers\Api\VoucherClaimController;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,10 @@ Route::middleware('auth:sanctum')->group(function () {
             abort_unless($item->shop->user_id === $request->user()->id, 403);
             $item->update($request->validate(['fulfillment_status' => 'required|in:processing,accepted,declined,shipped,delivered,cancelled']));
 
+            if ($item->fulfillment_status === 'cancelled' && $item->order->items()->where('fulfillment_status', '!=', 'cancelled')->doesntExist()) {
+                app(VoucherService::class)->releaseUsageForCancelledOrder($item->order);
+            }
+
             return $item->load('order');
         });
     });
@@ -47,9 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('cart/items', [CustomerCartController::class, 'store']);
         Route::patch('cart/items/{item}', [CustomerCartController::class, 'update']);
         Route::delete('cart/items/{item}', [CustomerCartController::class, 'destroy']);
-        Route::post('voucher/validate', [CheckoutController::class, 'validateVoucher']);
-        Route::get('vouchers', [VoucherClaimController::class, 'index']);
-        Route::post('vouchers/{voucher}/claim', [VoucherClaimController::class, 'claim'])->middleware('throttle:10,1');
+        Route::get('vouchers', [CustomerVoucherController::class, 'index']);
+        Route::post('cart/voucher', [CustomerVoucherController::class, 'apply']);
+        Route::post('cart/voucher/quote', [CustomerVoucherController::class, 'quote']);
+        Route::delete('cart/voucher', [CustomerVoucherController::class, 'remove']);
+        Route::post('vouchers/{voucher}/claim', [CustomerVoucherController::class, 'claim']);
         Route::post('checkout', [CheckoutController::class, 'store']);
         Route::get('orders', fn (Request $request) => $request->user()->orders()->with('items.product.images', 'items.shop')->latest()->paginate(20));
         Route::get('orders/{order}', fn (Request $request, Order $order) => abort_unless($order->user_id === $request->user()->id, 403) ?: $order->load('items.product.images', 'items.shop', 'payments'));

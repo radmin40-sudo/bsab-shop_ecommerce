@@ -7,7 +7,7 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Voucher;
+use App\Services\VoucherService;
 use Illuminate\Http\Request;
 
 class CustomerCartController extends Controller
@@ -17,9 +17,9 @@ class CustomerCartController extends Controller
         return Cart::firstOrCreate(['user_id' => $request->user()->id]);
     }
 
-    public function show(Request $request)
+    public function show(Request $request, VoucherService $vouchers)
     {
-        $cart = $this->cart($request)->load('items.product.shop', 'items.product.images', 'items.variant');
+        $cart = $this->cart($request)->load('items.product.shop', 'items.product.images', 'items.product.category', 'items.variant', 'voucher');
         $cart->items->each(function (CartItem $item) {
             $shop = $item->product?->shop;
 
@@ -27,16 +27,15 @@ class CustomerCartController extends Controller
                 $shop->setAttribute('gcash_qr_code_url', '/storage/'.$shop->gcash_qr_code);
             }
         });
-        $cart->setAttribute('available_vouchers', Voucher::with('shop:id,name')
-            ->where(function ($query) {
-                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
-            })
-            ->where(function ($query) {
-                $query->whereNull('usage_limit')->orWhereColumn('times_used', '<', 'usage_limit');
-            })
-            ->whereDoesntHave('redemptions', fn ($query) => $query->where('user_id', $request->user()->id))
-            ->latest()
-            ->get(['id', 'code', 'type', 'value', 'min_spend', 'expires_at', 'shop_id']));
+
+        if ($cart->voucher) {
+            try {
+                $cart->setAttribute('voucher_quote', $vouchers->quote($cart->voucher, $request->user(), $cart->items));
+            } catch (\Illuminate\Validation\ValidationException) {
+                $cart->setAttribute('voucher_quote', null);
+                $cart->setAttribute('voucher_invalid', true);
+            }
+        }
 
         return $cart;
     }
@@ -50,7 +49,7 @@ class CustomerCartController extends Controller
         ]);
 
         $product = Product::with('variants')->findOrFail($data['product_id']);
-        abort_unless($product->status === 'published' && $product->is_approved, 422, 'Product is unavailable or out of stock.');
+        abort_unless($product->status !== 'rejected', 422, 'Product is unavailable or out of stock.');
 
         $variant = null;
         if (! empty($data['variant_id'])) {
@@ -60,7 +59,11 @@ class CustomerCartController extends Controller
             abort_if($variant->stock_quantity < $data['quantity'], 422, 'Selected variant is sold out or has insufficient stock.');
         }
 
-        $stockCheck = $variant ? $variant->stock_quantity : $product->stock_quantity;
+        $stockCheck = $variant
+            ? $variant->stock_quantity
+            : ($product->variants->isNotEmpty()
+                ? $product->variants->where('is_active', true)->sum('stock_quantity')
+                : $product->stock_quantity);
         abort_if($stockCheck < $data['quantity'], 422, 'This product is sold out or has insufficient stock.');
 
         $unitPrice = $variant?->price ?? ($product->sale_price ?? $product->base_price);

@@ -1,6 +1,6 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { Head, Link } from '@inertiajs/react';
-import { Bell, KeyRound, ShieldCheck, SlidersHorizontal, Sparkles, Ticket } from 'lucide-react';
+import { Bell, KeyRound, ShieldCheck, SlidersHorizontal, Sparkles } from 'lucide-react';
 
 const settingsNav = [
     { label: 'Notifications', href: route('customer.settings.notifications') },
@@ -24,12 +24,6 @@ export default function CustomerSettings() {
                 </div>
 
                 <div className="mb-6 flex flex-wrap gap-2">
-                    <Link
-                        href={route('customer.vouchers')}
-                        className="inline-flex items-center gap-2 rounded-full bg-[#1f7a42] px-5 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(31,122,66,0.18)] transition hover:bg-[#185f35]"
-                    >
-                        <Ticket size={16} /> View vouchers
-                    </Link>
                     {settingsNav.map((item) => (
                         <Link
                             key={item.href}

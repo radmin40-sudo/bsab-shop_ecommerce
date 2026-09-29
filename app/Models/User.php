@@ -80,13 +80,19 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
-    public function voucherRedemptions()
+    public function wishlists()
     {
-        return $this->hasMany(VoucherRedemption::class);
+        return $this->hasMany(Wishlist::class);
     }
 
-    public function claimedVouchers()
+    public function voucherClaims()
     {
-        return $this->hasMany(UserVoucher::class);
+        return $this->hasMany(VoucherClaim::class);
     }
+
+    public function voucherUsages()
+    {
+        return $this->hasMany(VoucherUsage::class);
+    }
+
 }

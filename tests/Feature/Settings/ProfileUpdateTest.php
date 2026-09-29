@@ -108,7 +108,6 @@ class ProfileUpdateTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->put(route('user-password.update'), [
-                'current_password' => 'password',
                 'password' => 'new-password',
                 'password_confirmation' => 'new-password',
             ]);
@@ -118,5 +117,25 @@ class ProfileUpdateTest extends TestCase
             ->assertRedirect(route('admin.profile'));
 
         $this->assertTrue(Hash::check('new-password', $admin->refresh()->password));
+    }
+
+    public function test_seller_can_update_password_without_current_password_and_returns_to_profile(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create(['password' => 'password']);
+        $seller->assignRole('seller');
+
+        $response = $this
+            ->actingAs($seller)
+            ->put(route('user-password.update'), [
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('seller.profile'));
+
+        $this->assertTrue(Hash::check('new-password', $seller->refresh()->password));
     }
 }

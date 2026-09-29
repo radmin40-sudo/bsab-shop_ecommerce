@@ -7,8 +7,8 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Models\SiteSetting;
+use App\Models\ActivityLog;
 use App\Models\User;
-use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -105,28 +105,6 @@ class AdminSettingsBulkActionsTest extends TestCase
         $this->assertDatabaseMissing('orders', ['id' => $activeOrder->id]);
     }
 
-    public function test_admin_can_delete_all_vouchers_from_settings(): void
-    {
-        Role::findOrCreate('admin', 'web');
-
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-
-        Voucher::create([
-            'code' => 'WELCOME10',
-            'type' => 'fixed',
-            'value' => 10,
-            'created_by_role' => 'admin',
-        ]);
-
-        $this->actingAs($admin)
-            ->from('/admin/settings')
-            ->post(route('admin.settings.vouchers.clear'))
-            ->assertRedirect('/admin/settings');
-
-        $this->assertSame(0, Voucher::count());
-    }
-
     public function test_admin_settings_page_exposes_database_storage_status_for_media(): void
     {
         Role::findOrCreate('admin', 'web');
@@ -138,7 +116,11 @@ class AdminSettingsBulkActionsTest extends TestCase
         SiteSetting::updateOrCreate(['key' => 'hero_media_path'], ['value' => 'site/hero-video.mp4']);
         SiteSetting::updateOrCreate(['key' => 'hero_media_type'], ['value' => 'video']);
 
-        $this->actingAs($admin)
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0',
+            'HTTP_SEC_CH_UA_MODEL' => '"realme C11 Y"',
+        ])->actingAs($admin)
             ->get(route('admin.settings'))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
@@ -147,6 +129,17 @@ class AdminSettingsBulkActionsTest extends TestCase
                 ->where('storageStatus.hero_media_path.inDatabase', true)
                 ->where('storageStatus.hero_media_path.value', 'site/hero-video.mp4')
             );
+
+            $this->assertSame('Sec-CH-UA-Model', $response->headers->get('Accept-CH'));
+            $this->assertSame('ch-ua-model=(self)', $response->headers->get('Permissions-Policy'));
+
+            $activity = ActivityLog::query()->where('action', 'Viewed admin settings')->latest('id')->firstOrFail();
+
+            $this->assertSame($admin->id, $activity->user_id);
+            $this->assertSame('127.0.0.1', $activity->metadata['ip_address']);
+            $this->assertSame('realme C11 Y', $activity->metadata['device']);
+            $this->assertSame('Microsoft Edge', $activity->metadata['browser']);
+            $this->assertSame('Windows', $activity->metadata['operating_system']);
     }
 
     public function test_admin_can_upload_login_background_and_hero_media(): void

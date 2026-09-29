@@ -83,6 +83,11 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class);
     }
 
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'voucher_products')->withTimestamps();
+    }
+
     public function images()
     {
         return $this->hasMany(ProductImage::class);
@@ -91,6 +96,11 @@ class Product extends Model
     public function reviews()
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function wishlists()
+    {
+        return $this->hasMany(Wishlist::class);
     }
 
     public function options()

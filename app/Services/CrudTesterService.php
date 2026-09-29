@@ -29,10 +29,7 @@ use App\Models\SellerRating;
 use App\Models\Shop;
 use App\Models\SiteSetting;
 use App\Models\User;
-use App\Models\UserVoucher;
 use App\Models\VariantOptionValue;
-use App\Models\Voucher;
-use App\Models\VoucherRedemption;
 use App\Models\Wishlist;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\Eloquent\Model;
@@ -165,80 +162,58 @@ class CrudTesterService
                 'table' => 'payouts',
             ],
 
-            // --- Vouchers & Engagement ---
-            'voucher' => [
-                'name' => 'Voucher',
-                'group' => 'Customer & Vouchers',
-                'description' => 'Discount coupons and promotional vouchers',
-                'model' => Voucher::class,
-                'table' => 'vouchers',
-            ],
-            'voucher_redemption' => [
-                'name' => 'Voucher Redemption',
-                'group' => 'Customer & Vouchers',
-                'description' => 'Records of voucher usage during order checkout',
-                'model' => VoucherRedemption::class,
-                'table' => 'voucher_redemptions',
-            ],
-            'user_voucher' => [
-                'name' => 'User Voucher (Claim)',
-                'group' => 'Customer & Vouchers',
-                'description' => 'Customer voucher claiming and wallet lifecycle',
-                'model' => UserVoucher::class,
-                'table' => 'user_vouchers',
-            ],
             'address' => [
                 'name' => 'Address',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'User shipping and billing address records',
                 'model' => Address::class,
                 'table' => 'addresses',
             ],
             'review' => [
                 'name' => 'Review',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Order-item customer feedback and 1-5 star ratings',
                 'model' => Review::class,
                 'table' => 'reviews',
             ],
             'product_review' => [
                 'name' => 'Product Review (Extended)',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Moderated product reviews with titles and approval statuses',
                 'model' => ProductReview::class,
                 'table' => 'product_reviews',
             ],
             'seller_rating' => [
                 'name' => 'Seller Rating',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Buyer evaluations of sellers (shipping, accuracy, comms)',
                 'model' => SellerRating::class,
                 'table' => 'seller_ratings',
             ],
             'seller_follow' => [
                 'name' => 'Seller Follow',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Customer following shops for alerts and updates',
                 'model' => SellerFollow::class,
                 'table' => 'seller_follows',
             ],
             'wishlist' => [
                 'name' => 'Wishlist',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Customer bookmarked/favorite products',
                 'model' => Wishlist::class,
                 'table' => 'wishlists',
             ],
             'offer' => [
                 'name' => 'Offer',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Price bargaining and negotiation requests from buyers',
                 'model' => Offer::class,
                 'table' => 'offers',
             ],
             'offer_message' => [
                 'name' => 'Offer Message',
-                'group' => 'Customer & Vouchers',
+                'group' => 'Customer',
                 'description' => 'Negotiation conversation threads between buyer and seller',
                 'model' => OfferMessage::class,
                 'table' => 'offer_messages',
@@ -805,73 +780,6 @@ class CrudTesterService
             ],
             readVerification: fn (Payout $payout) => $payout->shop_id === $shop->id,
             updateVerification: fn (Payout $payout) => $payout->status === 'processed'
-        );
-    }
-
-    protected function testVoucher(): array
-    {
-        $unique = strtoupper(Str::random(6));
-
-        return $this->performStandardCrud(
-            modelClass: Voucher::class,
-            createAttributes: [
-                'code' => "DIAG_{$unique}",
-                'type' => 'fixed',
-                'value' => 50.00,
-                'created_by_role' => 'admin',
-                'min_spend' => 200.00,
-                'max_discount' => 50.00,
-                'usage_limit' => 100,
-                'times_used' => 0,
-            ],
-            updateAttributes: [
-                'value' => 75.00,
-                'times_used' => 1,
-            ],
-            readVerification: fn (Voucher $v) => str_starts_with($v->code, 'DIAG_'),
-            updateVerification: fn (Voucher $v) => (float) $v->value === 75.00 && $v->times_used === 1
-        );
-    }
-
-    protected function testVoucherRedemption(): array
-    {
-        $voucher = $this->createMockVoucher();
-        $user = $this->createMockUser();
-        $order = $this->createMockOrder($user);
-
-        return $this->performStandardCrud(
-            modelClass: VoucherRedemption::class,
-            createAttributes: [
-                'voucher_id' => $voucher->id,
-                'user_id' => $user->id,
-                'order_id' => $order->id,
-            ],
-            updateAttributes: [
-                'updated_at' => now(),
-            ],
-            readVerification: fn (VoucherRedemption $redemption) => $redemption->voucher_id === $voucher->id,
-            updateVerification: fn (VoucherRedemption $redemption) => $redemption->id !== null
-        );
-    }
-
-    protected function testUserVoucher(): array
-    {
-        $user = $this->createMockUser();
-        $voucher = $this->createMockVoucher();
-
-        return $this->performStandardCrud(
-            modelClass: UserVoucher::class,
-            createAttributes: [
-                'user_id' => $user->id,
-                'voucher_id' => $voucher->id,
-                'claimed_at' => now(),
-                'status' => 'claimed',
-            ],
-            updateAttributes: [
-                'status' => 'redeemed',
-            ],
-            readVerification: fn (UserVoucher $claim) => $claim->user_id === $user->id && $claim->status === 'claimed',
-            updateVerification: fn (UserVoucher $claim) => $claim->status === 'redeemed'
         );
     }
 
@@ -1569,16 +1477,4 @@ class CrudTesterService
         ]);
     }
 
-    protected function createMockVoucher(): Voucher
-    {
-        $unique = strtoupper(Str::random(6));
-
-        return Voucher::create([
-            'code' => "MOCK_{$unique}",
-            'type' => 'fixed',
-            'value' => 20.00,
-            'created_by_role' => 'admin',
-            'min_spend' => 100.00,
-        ]);
-    }
 }

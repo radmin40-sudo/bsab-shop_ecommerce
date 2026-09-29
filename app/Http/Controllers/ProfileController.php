@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Voucher;
 use App\Services\ImageOptimizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,21 +20,6 @@ class ProfileController extends Controller
         return Inertia::render($user->hasRole('admin') ? 'admin/profile' : ($user->hasRole('seller') ? 'seller/profile' : ($user->hasRole('customer') ? 'customer/profile' : 'welcome')), [
             'address' => $user->addresses()->where('is_default', true)->first() ?? $user->addresses()->first(),
             'avatarUrl' => $user->avatar ? '/storage/'.$user->avatar : null,
-            'availableVouchers' => $user->hasRole('customer')
-                ? Voucher::with('shop:id,name')
-                    ->where(function ($query) {
-                        $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                    })
-                    ->where(function ($query) {
-                        $query->whereNull('usage_limit')->orWhereColumn('times_used', '<', 'usage_limit');
-                    })
-                    ->whereDoesntHave('redemptions', fn ($query) => $query->where('user_id', $user->id))
-                    ->latest()
-                    ->get(['id', 'code', 'type', 'value', 'shop_id', 'min_spend', 'max_discount', 'expires_at'])
-                : [],
-            'usedVouchers' => $user->hasRole('customer')
-                ? $user->voucherRedemptions()->with(['voucher.shop:id,name', 'order:id,order_number,created_at'])->latest()->get()
-                : [],
         ]);
     }
 

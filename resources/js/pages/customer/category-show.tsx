@@ -32,7 +32,7 @@ export default function CustomerCategoryShow({ category, products = [] }: Catego
                         href={route('customer.products')}
                         className="inline-flex items-center gap-2 text-sm font-semibold text-[#1f7a42] hover:text-[#185f35]"
                     >
-                        <ArrowLeft size={16} /> Back to categories
+                        <ArrowLeft size={16} /> Back to products
                     </Link>
                     <span className="inline-flex items-center gap-2 rounded-full bg-[#e6f7eb] px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-[#1f7a42] uppercase">
                         <Package size={12} /> {products.length} items

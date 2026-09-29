@@ -104,41 +104,40 @@ export default function CustomerFavorites({ products = [] }: { products?: Produc
                 <div className="mb-6 flex items-center justify-between">
                     <Link
                         href={route('marketplace')}
-                        className="flex items-center gap-1.5 text-sm font-medium text-[#4a5568] transition-colors hover:text-[#163b24]"
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-[#4a5568] transition-colors hover:bg-[#f5fcf7] hover:text-[#163b24]"
+                        aria-label="Back to shop"
                     >
-                        <ArrowLeft size={16} />
-                        Back to shop
+                        <ArrowLeft size={18} />
                     </Link>
+                    <h1 className="text-xl font-extrabold tracking-tight text-[#163b24]">Favorites</h1>
                     <Link
                         href={route('customer.cart')}
-                        className="flex items-center gap-2 rounded-full border border-[#d1d5db] bg-white px-4 py-2 text-sm font-semibold text-[#163b24] shadow-sm transition-shadow hover:shadow"
+                        className="relative flex h-9 w-9 items-center justify-center rounded-full text-[#163b24] transition-colors hover:bg-[#f5fcf7]"
+                        aria-label={`Open cart, ${cartCount} items`}
                     >
-                        <ShoppingCart size={16} />
-                        Cart
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2c9350] text-[10px] font-bold text-white">
-                            {cartCount}
-                        </span>
+                        <ShoppingCart size={18} />
+                        {cartCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2c9350] px-1 text-[9px] font-bold text-white">
+                                {cartCount}
+                            </span>
+                        )}
                     </Link>
                 </div>
 
-                {/* Page header */}
-                <div className="mb-6">
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#163b24]">Favorites</h1>
-                    {favorites.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
-                            <p className="text-sm text-[#647568]">
-                                {favorites.length} product{favorites.length !== 1 ? 's' : ''} you've saved — add them to your cart or let them go
-                                anytime.
-                            </p>
-                            <button
-                                onClick={clearAll}
-                                className="shrink-0 text-sm text-[#647568] underline-offset-2 transition-colors hover:text-[#163b24] hover:underline"
-                            >
-                                Clear all
-                            </button>
-                        </div>
-                    )}
-                </div>
+                {/* Page sub-header */}
+                {favorites.length > 0 && (
+                    <div className="mb-6 flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm text-[#647568]">
+                            {favorites.length} product{favorites.length !== 1 ? 's' : ''} you've saved — add them to your cart or let them go anytime.
+                        </p>
+                        <button
+                            onClick={clearAll}
+                            className="shrink-0 text-sm text-[#647568] underline-offset-2 transition-colors hover:text-[#163b24] hover:underline"
+                        >
+                            Clear all
+                        </button>
+                    </div>
+                )}
 
                 {/* Grid */}
                 {favorites.length > 0 ? (
@@ -202,7 +201,7 @@ export default function CustomerFavorites({ products = [] }: { products?: Produc
                                                 event.stopPropagation();
                                                 removeFavorite(product.id);
                                             }}
-                                            className="absolute top-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2c9350] shadow-md transition-transform hover:scale-110"
+                                            className="absolute top-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-[#2c9350] transition-transform hover:scale-110"
                                             aria-label={`Remove ${product.name} from favorites`}
                                         >
                                             <Heart size={16} fill="currentColor" />

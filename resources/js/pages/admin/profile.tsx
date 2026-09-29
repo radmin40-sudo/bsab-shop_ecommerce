@@ -19,7 +19,6 @@ export default function AdminProfile() {
         avatar: null as File | null,
     });
     const passwordForm = useForm({
-        current_password: '',
         password: '',
         password_confirmation: '',
     });
@@ -172,18 +171,7 @@ export default function AdminProfile() {
                             </div>
                         </div>
                     </div>
-                    <form onSubmit={submitPassword} className="grid gap-5 p-6 sm:grid-cols-3 sm:p-10">
-                        <label className="block text-sm font-semibold">
-                            Current password
-                            <input
-                                required
-                                type="password"
-                                value={passwordForm.data.current_password}
-                                onChange={(event) => passwordForm.setData('current_password', event.target.value)}
-                                className="mt-2 w-full rounded-xl border border-[#dfe9e1] bg-[#fbfefb] px-4 py-3 text-sm outline-none focus:border-[#3fa34d] focus:ring-4 focus:ring-[#e3f3e4]"
-                            />
-                            <InputError message={passwordForm.errors.current_password} className="mt-2" />
-                        </label>
+                    <form onSubmit={submitPassword} className="grid gap-5 p-6 sm:grid-cols-2 sm:p-10">
                         <label className="block text-sm font-semibold">
                             New password
                             <input
@@ -206,7 +194,7 @@ export default function AdminProfile() {
                             />
                             <InputError message={passwordForm.errors.password_confirmation} className="mt-2" />
                         </label>
-                        <div className="sm:col-span-3">
+                        <div className="sm:col-span-2">
                             <button
                                 type="submit"
                                 disabled={passwordForm.processing}

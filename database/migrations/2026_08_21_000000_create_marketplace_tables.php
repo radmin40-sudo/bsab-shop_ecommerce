@@ -189,20 +189,6 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['user_id', 'order_item_id']);
         });
-        Schema::create('vouchers', function (Blueprint $table) {
-            $table->id();
-            $table->string('code')->unique();
-            $table->string('type');
-            $table->decimal('value', 12, 2);
-            $table->foreignId('shop_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('created_by_role');
-            $table->decimal('min_spend', 12, 2)->default(0);
-            $table->decimal('max_discount', 12, 2)->nullable();
-            $table->timestamp('expires_at')->nullable();
-            $table->unsignedInteger('usage_limit')->nullable();
-            $table->unsignedInteger('times_used')->default(0);
-            $table->timestamps();
-        });
         Schema::create('wishlists', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -236,7 +222,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (['notifications', 'addresses', 'wishlists', 'vouchers', 'reviews', 'payouts', 'payments', 'order_items', 'orders', 'cart_items', 'carts', 'product_images', 'product_variants', 'products', 'categories', 'shops', 'model_has_permissions', 'model_has_roles', 'role_has_permissions', 'permissions', 'roles', 'personal_access_tokens'] as $table) {
+        foreach (['notifications', 'addresses', 'wishlists', 'reviews', 'payouts', 'payments', 'order_items', 'orders', 'cart_items', 'carts', 'product_images', 'product_variants', 'products', 'categories', 'shops', 'model_has_permissions', 'model_has_roles', 'role_has_permissions', 'permissions', 'roles', 'personal_access_tokens'] as $table) {
             Schema::dropIfExists($table);
         }
         Schema::table('users', function (Blueprint $table) {

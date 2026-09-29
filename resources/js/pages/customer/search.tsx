@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Image as ImageIcon, Search } from 'lucide-react';
+import { ArrowLeft, Grid2X2, Heart, Home, Image as ImageIcon, Search, ShoppingCart, UserRound } from 'lucide-react';
 import { useState } from 'react';
 
 type Product = {
@@ -49,7 +49,7 @@ export default function SearchPage({ query = '', products = [] }: { query?: stri
                         </form>
                     </div>
                 </header>
-                <main className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
+                <main className="mx-auto max-w-4xl px-5 py-8 pb-28 sm:px-8">
                     {query ? (
                         <div className="mb-6">
                             <p className="text-xs font-bold tracking-[0.18em] text-[#2c9350] uppercase">Search results</p>
@@ -101,6 +101,31 @@ export default function SearchPage({ query = '', products = [] }: { query?: stri
                         </div>
                     )}
                 </main>
+                <nav
+                    className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#def0e2] bg-white px-2 py-2.5 pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
+                    aria-label="Bottom navigation"
+                >
+                    <Link href="/" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                        <Home size={19} />
+                        Home
+                    </Link>
+                    <Link href="/customer/products" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                        <Grid2X2 size={19} />
+                        Products
+                    </Link>
+                    <Link href="/customer/favorites" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                        <Heart size={19} />
+                        Favorites
+                    </Link>
+                    <Link href="/customer/cart" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                        <ShoppingCart size={19} />
+                        Cart
+                    </Link>
+                    <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                        <UserRound size={19} />
+                        Profile
+                    </Link>
+                </nav>
             </div>
         </>
     );

@@ -30,6 +30,11 @@ type Product = {
     base_price: string;
     sale_price?: string;
     stock_quantity: number;
+    available_stock: number;
+    is_out_of_stock: boolean;
+    average_rating: number;
+    review_count: number;
+    is_favorited: boolean;
     selling_unit?: string | null;
     reviews_count?: number;
     status: string;
@@ -38,8 +43,6 @@ type Product = {
     shop?: { name: string };
     images?: { path: string }[];
 };
-type SortOption = 'popular' | 'newest' | 'price-low' | 'price-high';
-
 const categoryColors = ['#e4efe7', '#e8eee3', '#f4e8d9', '#e4edf0', '#f1e7df', '#e8efe1'];
 
 function avatarUrl(avatar?: string) {
@@ -95,16 +98,7 @@ export default function Welcome({
     const newsletterPlaceholder = siteSettings.newsletter_placeholder || 'Enter your email address';
     const [activeCategory, setActiveCategory] = useState('all');
     const [search, setSearch] = useState('');
-    const [showNewOnly, setShowNewOnly] = useState(false);
-    const [sortOption, setSortOption] = useState<SortOption>('popular');
-    const [liked, setLiked] = useState<number[]>(() => {
-        if (typeof window === 'undefined') return [];
-        try {
-            return JSON.parse(window.localStorage.getItem('sprig-favorites') || '[]');
-        } catch {
-            return [];
-        }
-    });
+    const [liked, setLiked] = useState<number[]>(() => products.filter((product) => product.is_favorited).map((product) => product.id));
     const [accountOpen, setAccountOpen] = useState(false);
     const searchableText = (product: Product) =>
         [product.name, product.description, product.category?.name, product.shop?.name].filter(Boolean).join(' ').toLowerCase();
@@ -140,33 +134,20 @@ export default function Welcome({
             .slice(0, 4);
     }, [products, search, searchResults]);
 
-    const productFeed = useMemo(() => {
-        const sourceProducts = search.trim() ? searchResults : products;
-        const filteredProducts = sourceProducts.filter(
-            (product) => activeCategory === 'all' || product.category?.slug === activeCategory,
-        );
-
-        if (sortOption === 'price-low' || sortOption === 'price-high') {
-            return [...filteredProducts].sort((first, second) => {
-                const firstPrice = Number(first.sale_price ?? first.base_price);
-                const secondPrice = Number(second.sale_price ?? second.base_price);
-                return sortOption === 'price-low' ? firstPrice - secondPrice : secondPrice - firstPrice;
-            });
-        }
-
-        return showNewOnly ? filteredProducts.slice(0, 20) : filteredProducts;
-    }, [activeCategory, products, search, searchResults, showNewOnly, sortOption]);
+    const productFeed = search.trim() ? searchResults : products;
 
     function openProduct(product: Product) {
         router.visit(route('products.show', product.id));
     }
 
     function toggleFavorite(productId: number) {
-        setLiked((current) => {
-            const next = current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId];
-            window.localStorage.setItem('sprig-favorites', JSON.stringify(next));
-            return next;
-        });
+        if (!auth.user) {
+            router.visit(route('login'));
+            return;
+        }
+
+        setLiked((current) => (current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]));
+        router.post(route('customer.favorites.toggle', productId), {}, { preserveScroll: true });
     }
 
     function submitSearch(event: React.FormEvent) {
@@ -236,7 +217,7 @@ export default function Welcome({
                         <div className="order-1 ml-auto flex items-center justify-end gap-2 sm:order-2 sm:ml-5 lg:hidden">
                             <Link
                                 href={route('customer.cart')}
-                                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[#dfeae2] bg-[#f5fcf7] text-[#1b4332] shadow-sm transition hover:bg-[#edf9f0]"
+                                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                 aria-label="Open cart"
                             >
                                 <ShoppingCart size={18} strokeWidth={2.2} />
@@ -249,7 +230,7 @@ export default function Welcome({
                                 <div className="relative">
                                     <button
                                         onClick={() => setAccountOpen(!accountOpen)}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dfeae2] bg-[#f5fcf7] text-[#1b4332] shadow-sm transition hover:bg-[#edf9f0]"
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                         aria-label="Open account menu"
                                         aria-expanded={accountOpen}
                                     >
@@ -268,10 +249,10 @@ export default function Welcome({
                                     {accountOpen && (
                                         <div className="absolute top-12 right-0 z-20 w-44 rounded-xl border border-[#def0e2] bg-white p-1.5 shadow-[0_8px_25px_rgba(22,59,36,0.1)]">
                                             <Link
-                                                href={route('customer.account')}
+                                                href={route('customer.profile')}
                                                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                             >
-                                                <UserRound size={16} /> Account
+                                                <UserRound size={16} /> Profile
                                             </Link>
                                             <Link
                                                 href={route('customer.settings')}
@@ -305,7 +286,7 @@ export default function Welcome({
                                 <>
                                     <Link
                                         href={route('customer.cart')}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full border border-[#def0e2] bg-white text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                         aria-label="Open cart"
                                     >
                                         <ShoppingCart size={17} />
@@ -313,7 +294,7 @@ export default function Welcome({
                                     <div className="relative">
                                         <button
                                             onClick={() => setAccountOpen(!accountOpen)}
-                                            className="flex items-center gap-2 rounded-full border border-[#def0e2] bg-white px-2.5 py-1.5 text-[#1b4332] shadow-sm transition hover:bg-[#f5fcf7]"
+                                            className="flex items-center gap-2 rounded-full bg-transparent px-2.5 py-1.5 text-[#1b4332] transition hover:bg-[#f5fcf7]"
                                             aria-label="Open account menu"
                                         >
                                             <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#52b788] text-[10px] font-bold text-[#1b4332]">
@@ -331,10 +312,10 @@ export default function Welcome({
                                         {accountOpen && (
                                             <div className="absolute top-12 right-0 z-20 w-44 rounded-xl border border-[#def0e2] bg-white p-1.5 shadow-[0_8px_25px_rgba(22,59,36,0.1)]">
                                                 <Link
-                                                    href={route('customer.account')}
+                                                    href={route('customer.profile')}
                                                     className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                                 >
-                                                    <UserRound size={16} /> Account
+                                                    <UserRound size={16} /> Profile
                                                 </Link>
                                                 <Link
                                                     href={route('customer.settings')}
@@ -447,91 +428,108 @@ export default function Welcome({
                             </div>
                         </div>
                     </section>
-                    <div
-                        id="products"
-                        className="order-3 mt-5 mb-3 flex items-end justify-between gap-4 rounded-t-2xl border border-b-0 border-[#e3eee6] bg-white px-4 pt-4 sm:px-5"
-                    >
-                        <div>
-                            <h2 className="font-display text-xl font-bold text-[#184c35]">
-                                {search.trim() ? 'Search results' : productsTitle}{' '}
-                                <span className="text-sm font-medium text-[#5c6e63]">
-                                    ({search.trim() ? searchResults.length : Math.min(productFeed.length, 20)})
-                                </span>
-                            </h2>
-                            <p className="mt-1 text-xs text-[#789184]">{productsSubtitle}</p>
+                    <section id="products" className="order-3 mt-5 rounded-2xl border border-[#e3eee6] bg-white p-4 sm:p-5">
+                        <div className="mb-4 flex items-end justify-between gap-4">
+                            <div>
+                                <h2 className="font-display text-xl font-bold text-[#184c35]">
+                                    {search.trim() ? 'Search results' : productsTitle}{' '}
+                                    <span className="text-sm font-medium text-[#5c6e63]">
+                                        ({search.trim() ? searchResults.length : Math.min(productFeed.length, 20)})
+                                    </span>
+                                </h2>
+                                <p className="mt-1 text-xs text-[#789184]">{productsSubtitle}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="order-4 grid grid-cols-2 gap-3 rounded-b-2xl border border-t-0 border-[#e3eee6] bg-white px-4 pb-5 sm:grid-cols-3 sm:gap-4 sm:px-5 lg:grid-cols-5">
-                        {productFeed.map((product) => {
-                            const price = product.sale_price ?? product.base_price;
-                            const image = product.images?.[0]?.path;
-                            return (
-                                <article
-                                    key={product.id}
-                                    onClick={() => openProduct(product)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            openProduct(product);
-                                        }
-                                    }}
-                                    role="link"
-                                    tabIndex={0}
-                                    className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-[#e4ece5] bg-white shadow-[0_3px_12px_rgba(22,59,36,0.05)] transition hover:-translate-y-1 hover:shadow-lg"
-                                >
-                                    <div className="relative flex aspect-square items-center justify-center bg-[#f1f5f1]">
-                                        {image ? (
-                                            <img
-                                                src={image.startsWith('http') || image.startsWith('/') ? image : `/storage/${image}`}
-                                                alt={product.name}
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <Package size={58} strokeWidth={1.2} className="text-[#2c9350]" />
-                                        )}
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                toggleFavorite(product.id);
+                        {productFeed.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+                                {productFeed.map((product) => {
+                                    const price = product.sale_price ?? product.base_price;
+                                    const image = product.images?.[0]?.path;
+                                    return (
+                                        <article
+                                            key={product.id}
+                                            onClick={() => openProduct(product)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    openProduct(product);
+                                                }
                                             }}
-                                            className={`absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white ${liked.includes(product.id) ? 'text-[#2c9350]' : 'text-[#647568]'}`}
-                                            aria-label={
-                                                liked.includes(product.id)
-                                                    ? `Remove ${product.name} from favorites`
-                                                    : `Add ${product.name} to favorites`
-                                            }
-                                            aria-pressed={liked.includes(product.id)}
-                                            title={liked.includes(product.id) ? 'Remove from favorites' : 'Add to favorites'}
+                                            role="link"
+                                            tabIndex={0}
+                                            className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-[#e4ece5] bg-white shadow-[0_3px_12px_rgba(22,59,36,0.05)] transition hover:-translate-y-1 hover:shadow-lg"
                                         >
-                                            <Heart size={15} fill={liked.includes(product.id) ? '#2c9350' : 'none'} />
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-1 flex-col p-2.5">
-                                        <span className="text-[9px] font-bold tracking-[.06em] text-[#2c9350] uppercase">
-                                            {product.category?.name ?? 'Marketplace'}
-                                        </span>
-                                        <h3 className="mt-1 line-clamp-2 text-xs font-semibold">{product.name}</h3>
-                                        <div className="mt-2 flex items-center gap-1 text-[10px] text-[#5c6e63]">
-                                            <Star size={12} fill="#f3b33d" className="text-[#f3b33d]" />
-                                            <span>4.8</span>
-                                            <span className="text-[#91a197]">({product.reviews_count ?? 0})</span>
-                                        </div>
-                                        <div className="mt-auto pt-3">
-                                            <div className="font-display mb-2 text-sm font-bold text-[#16804a]">
-                                                ₱{Number(price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                                <span className="ml-1 text-[10px] font-medium text-[#789184]">/{product.selling_unit || 'pc'}</span>
+                                            <div className="relative flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden bg-[#f1f5f1]">
+                                                {image ? (
+                                                    <img
+                                                        src={image.startsWith('http') || image.startsWith('/') ? image : `/storage/${image}`}
+                                                        alt={product.name}
+                                                        className="block h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <Package size={58} strokeWidth={1.2} className="text-[#2c9350]" />
+                                                )}
+                                                <button
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        toggleFavorite(product.id);
+                                                    }}
+                                                    className={`absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition-transform hover:scale-110 ${liked.includes(product.id) ? 'text-[#2c9350]' : 'text-[#647568]'}`}
+                                                    aria-label={
+                                                        liked.includes(product.id)
+                                                            ? `Remove ${product.name} from favorites`
+                                                            : `Add ${product.name} to favorites`
+                                                    }
+                                                    aria-pressed={liked.includes(product.id)}
+                                                    title={liked.includes(product.id) ? 'Remove from favorites' : 'Add to favorites'}
+                                                >
+                                                    <Heart size={15} fill={liked.includes(product.id) ? '#2c9350' : 'none'} />
+                                                </button>
+                                                {product.sale_price && Number(product.sale_price) < Number(product.base_price) && (
+                                                    <span className="absolute top-2 left-2 rounded-full bg-[#2c9350] px-2 py-1 text-[9px] font-bold text-white">
+                                                        Sale
+                                                    </span>
+                                                )}
                                             </div>
-                                        </div>
-                                    </div>
-                                </article>
-                            );
-                        })}
-                    </div>
-                    {!searchResults.length && (
-                        <div className="order-4 rounded-2xl border border-dashed border-[#c4e3ce] bg-[#fbfaf6] py-16 text-center text-sm text-[#5c6e63]">
-                            No products found.
-                        </div>
-                    )}
+                                            <div className="flex flex-1 flex-col p-2.5">
+                                                <span className="text-[9px] font-bold tracking-[.06em] text-[#2c9350] uppercase">
+                                                    {product.category?.name ?? 'Marketplace'}
+                                                </span>
+                                                <h3 className="mt-1 line-clamp-2 text-xs font-semibold">{product.name}</h3>
+                                                <div className="mt-2 flex items-center gap-1 text-[10px] text-[#5c6e63]">
+                                                    <span className="flex text-[#f3b33d]" aria-label={`${product.average_rating.toFixed(1)} out of 5 stars`}>
+                                                        {Array.from({ length: 5 }, (_, index) => (
+                                                            <Star
+                                                                key={index}
+                                                                size={11}
+                                                                fill={product.average_rating >= index + 1 ? 'currentColor' : 'none'}
+                                                                strokeWidth={1.8}
+                                                            />
+                                                        ))}
+                                                    </span>
+                                                    <span>{product.average_rating.toFixed(1)}</span>
+                                                    <span className="text-[#91a197]">({product.review_count})</span>
+                                                </div>
+                                                <div className="mt-auto pt-3">
+                                                    <div className="font-display mb-2 text-sm font-bold text-[#16804a]">
+                                                        ₱{Number(price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                        <span className="ml-1 text-[10px] font-medium text-[#789184]">/{product.selling_unit || 'pc'}</span>
+                                                    </div>
+                                                    <p className={`text-[10px] font-medium ${product.is_out_of_stock ? 'text-[#b45b4d]' : 'text-[#789184]'}`}>
+                                                        {product.is_out_of_stock ? 'Out of stock' : `${product.available_stock} available`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-[#c4e3ce] bg-[#fbfaf6] py-16 text-center text-sm text-[#5c6e63]">
+                                No products found.
+                            </div>
+                        )}
+                    </section>
                     {!!recommendations.length && (
                         <section className="order-5 mt-10">
                             <div className="mb-4 flex items-center justify-between gap-4">
@@ -558,12 +556,12 @@ export default function Welcome({
                                             tabIndex={0}
                                             className="flex cursor-pointer flex-col overflow-hidden rounded-3xl border border-[#def0e2] bg-white shadow-[0_6px_20px_rgba(22,59,36,0.06)] transition hover:-translate-y-1 hover:shadow-lg"
                                         >
-                                            <div className="relative flex aspect-square items-center justify-center bg-[#efe9dd]">
+                                            <div className="relative flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden bg-[#efe9dd]">
                                                 {image ? (
                                                     <img
                                                         src={image.startsWith('http') || image.startsWith('/') ? image : `/storage/${image}`}
                                                         alt={product.name}
-                                                        className="h-full w-full object-contain"
+                                                        className="block h-full w-full object-cover"
                                                     />
                                                 ) : (
                                                     <Package size={58} strokeWidth={1.2} className="text-[#2c9350]" />
@@ -573,7 +571,7 @@ export default function Welcome({
                                                         event.stopPropagation();
                                                         toggleFavorite(product.id);
                                                     }}
-                                                    className={`absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white ${liked.includes(product.id) ? 'text-[#2c9350]' : 'text-[#647568]'}`}
+                                                    className={`absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-transparent transition-transform hover:scale-110 ${liked.includes(product.id) ? 'text-[#2c9350]' : 'text-[#647568]'}`}
                                                     aria-label={
                                                         liked.includes(product.id)
                                                             ? `Remove ${product.name} from favorites`
@@ -592,12 +590,34 @@ export default function Welcome({
                                                 <h3 className="mt-1 line-clamp-2 text-sm font-semibold">{product.name}</h3>
                                                 <p className="mt-1 truncate text-xs text-[#647568]">{product.shop?.name ?? 'BSABShop seller'}</p>
                                                 <div className="mt-2 flex items-center gap-1 text-xs text-[#5c6e63]">
-                                                    <Star size={12} fill="#2c9350" className="text-[#2c9350]" /> New listing
+                                                    <span
+                                                        className="flex text-[#f3b33d]"
+                                                        aria-label={`${product.average_rating.toFixed(1)} out of 5 stars`}
+                                                    >
+                                                        {Array.from({ length: 5 }, (_, index) => (
+                                                            <Star
+                                                                key={index}
+                                                                size={11}
+                                                                fill={product.average_rating >= index + 1 ? 'currentColor' : 'none'}
+                                                                strokeWidth={1.8}
+                                                            />
+                                                        ))}
+                                                    </span>
+                                                    <span>{product.average_rating.toFixed(1)}</span>
+                                                    <span className="text-[#91a197]">({product.review_count})</span>
                                                 </div>
                                                 <div className="mt-auto pt-3">
                                                     <div className="font-display mb-2 text-lg font-bold text-[#163b24]">
-                                                        ₱{Number(price).toLocaleString()}
+                                                        ₱{Number(price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                        <span className="ml-1 text-[10px] font-medium text-[#789184]">
+                                                            /{product.selling_unit || 'pc'}
+                                                        </span>
                                                     </div>
+                                                    <p
+                                                        className={`text-[10px] font-medium ${product.is_out_of_stock ? 'text-[#b45b4d]' : 'text-[#789184]'}`}
+                                                    >
+                                                        {product.is_out_of_stock ? 'Out of stock' : `${product.available_stock} available`}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </article>
@@ -682,10 +702,10 @@ export default function Welcome({
                     className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6] px-2 py-2.5 lg:hidden"
                     aria-label="Mobile navigation"
                 >
-                    <a href="#" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#1b4332]">
+                    <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#1b4332]">
                         <Home size={19} />
                         Home
-                    </a>
+                    </Link>
                     <Link
                         href={auth.user ? route('customer.products') : route('login')}
                         className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
@@ -708,11 +728,11 @@ export default function Welcome({
                         Cart
                     </Link>
                     <Link
-                        href={auth.user ? route('customer.account') : route('login')}
+                        href={auth.user ? route('customer.profile') : route('login')}
                         className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
                     >
                         <UserRound size={19} />
-                        Account
+                        Profile
                     </Link>
                 </nav>
             </div>

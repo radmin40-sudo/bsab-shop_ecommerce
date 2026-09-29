@@ -18,7 +18,7 @@ export default function SellerProfile() {
         phone: (auth.user.phone as string | undefined) ?? '',
         avatar: null as File | null,
     });
-    const passwordForm = useForm({ current_password: '', password: '', password_confirmation: '' });
+    const passwordForm = useForm({ password: '', password_confirmation: '' });
 
     function submitProfile(event: FormEvent) {
         event.preventDefault();
@@ -169,10 +169,9 @@ export default function SellerProfile() {
                             </div>
                         </div>
                     </div>
-                    <form onSubmit={submitPassword} className="grid gap-5 p-6 sm:grid-cols-3 sm:p-10">
+                    <form onSubmit={submitPassword} className="grid gap-5 p-6 sm:grid-cols-2 sm:p-10">
                         {(
                             [
-                                ['current_password', 'Current password'],
                                 ['password', 'New password'],
                                 ['password_confirmation', 'Confirm new password'],
                             ] as const

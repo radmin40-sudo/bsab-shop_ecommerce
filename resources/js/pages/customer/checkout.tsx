@@ -1,5 +1,5 @@
 import { PortalLayout } from '@/components/portal-layout';
-import { api, checkoutCart, currentUser, getCustomerVouchers, validateVoucher } from '@/lib/api';
+import { api, checkoutCart, currentUser, prepareSanctum } from '@/lib/api';
 import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -25,7 +25,11 @@ type CartItem = {
         images?: { path: string; is_primary: boolean }[];
     };
 };
-type CartData = { items: CartItem[] };
+type CartData = {
+    items: CartItem[];
+    voucher?: { id: number; code: string; name: string } | null;
+    voucher_quote?: { code: string; discount: number; eligible_subtotal: number; free_shipping: boolean } | null;
+};
 type CheckoutProps = { selectedItemIds?: number[] };
 
 const emptyAddress: AddressForm = { full_name: '', phone: '', line1: '', city: '', province: '', postal_code: '' };
@@ -76,6 +80,12 @@ function OrderSummary({
     onPlaceOrder,
     disabled,
     isSubmitting,
+    voucher,
+    voucherCode,
+    voucherBusy,
+    onVoucherCodeChange,
+    onApplyVoucher,
+    onRemoveVoucher,
 }: {
     items: CartItem[];
     subtotal: number;
@@ -86,6 +96,12 @@ function OrderSummary({
     onPlaceOrder: () => void;
     disabled: boolean;
     isSubmitting: boolean;
+    voucher: CartData['voucher_quote'];
+    voucherCode: string;
+    voucherBusy: boolean;
+    onVoucherCodeChange: (value: string) => void;
+    onApplyVoucher: () => void;
+    onRemoveVoucher: () => void;
 }) {
     return (
         <aside className="rounded-[26px] border border-[#dfeee5] bg-[#ebf9ee] p-4 shadow-[0_12px_35px_rgba(22,59,36,0.06)] sm:p-5 lg:sticky lg:top-5">
@@ -132,6 +148,36 @@ function OrderSummary({
                     <span>Shipping</span>
                     <span>{shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}</span>
                 </div>
+                <div className="rounded-xl border border-[#dfeee5] bg-white p-3">
+                    <p className="mb-2 text-xs font-bold text-[#163b24]">Voucher</p>
+                    {voucher ? (
+                        <div className="flex items-center justify-between gap-2 text-xs text-[#1f7a42]">
+                            <span className="truncate">
+                                <b>{voucher.code}</b> applied
+                            </span>
+                            <button type="button" disabled={voucherBusy} onClick={onRemoveVoucher} className="font-bold underline">
+                                Remove
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex gap-2">
+                            <input
+                                value={voucherCode}
+                                onChange={(event) => onVoucherCodeChange(event.target.value.toUpperCase())}
+                                placeholder="Enter code"
+                                className="min-w-0 flex-1 rounded-lg border border-[#dfeee5] px-2.5 py-2 text-xs uppercase"
+                            />
+                            <button
+                                type="button"
+                                disabled={voucherBusy || !voucherCode.trim()}
+                                onClick={onApplyVoucher}
+                                className="rounded-lg bg-[#1f7a42] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    )}
+                </div>
                 {discount > 0 && (
                     <div className="flex justify-between text-[#2c7a3b]">
                         <span>Discount</span>
@@ -167,15 +213,15 @@ export default function CustomerCheckout() {
         queryKey: ['cart'],
         queryFn: async () => (await api.get('/customer/cart')).data,
     });
-    const { data: voucherData } = useQuery({ queryKey: ['customer-vouchers'], queryFn: getCustomerVouchers });
     const items = data?.items || [];
     const [selectedItemIds, setSelectedItemIds] = useState<number[]>(initialSelectedItemIds);
     const [step, setStep] = useState<CheckoutStep>('cart');
     const [address, setAddress] = useState<AddressForm>(emptyAddress);
     const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
     const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'cod'>('gcash');
+    const [voucherQuote, setVoucherQuote] = useState<CartData['voucher_quote']>(null);
     const [voucherCode, setVoucherCode] = useState('');
-    const [discount, setDiscount] = useState(0);
+    const [voucherBusy, setVoucherBusy] = useState(false);
     const [notice, setNotice] = useState('');
     const [gcashNumber, setGcashNumber] = useState('');
     const [gcashName, setGcashName] = useState('');
@@ -186,8 +232,24 @@ export default function CustomerCheckout() {
 
     const selectedItems = useMemo(() => items.filter((item) => selectedItemIds.includes(item.id)), [items, selectedItemIds]);
     const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
-    const shippingCost = shippingMethod === 'express' ? 99 : subtotal > 1000 ? 0 : 0;
+    const shippingCost = voucherQuote?.free_shipping ? 0 : shippingMethod === 'express' ? 99 : 0;
+    const discount = Number(voucherQuote?.discount ?? 0);
     const total = Math.max(0, subtotal + shippingCost - discount);
+    const selectedItemsKey = selectedItemIds.join(',');
+
+    useEffect(() => {
+        if (!data?.voucher) {
+            setVoucherQuote(null);
+            return;
+        }
+
+        api.post('/customer/cart/voucher/quote', { selected_item_ids: selectedItemIds })
+            .then((response) => setVoucherQuote(response.data.voucher))
+            .catch((error) => {
+                setVoucherQuote(null);
+                setNotice(error?.response?.data?.message || 'The applied voucher is no longer valid for these items.');
+            });
+    }, [data?.voucher?.id, selectedItemsKey]);
 
     useEffect(() => {
         if (!data) return;
@@ -217,24 +279,6 @@ export default function CustomerCheckout() {
         setGcashName(shop?.gcash_account_name || '');
     }, [selectedItems]);
 
-    useEffect(() => {
-        if (voucherCode || discount > 0 || !subtotal || !voucherData?.claimed_vouchers?.length) return;
-
-        const eligibleVoucher = voucherData.claimed_vouchers.find((voucher) => Number(voucher.min_spend) <= subtotal);
-        if (!eligibleVoucher) return;
-
-        setVoucherCode(eligibleVoucher.code);
-        void validateVoucher(eligibleVoucher.code, subtotal)
-            .then((result) => {
-                setDiscount(result.discount);
-                setNotice('');
-            })
-            .catch(() => {
-                setVoucherCode('');
-                setDiscount(0);
-            });
-    }, [discount, subtotal, voucherCode, voucherData]);
-
     async function submitOrder() {
         setBusy(true);
         setNotice('');
@@ -243,7 +287,7 @@ export default function CustomerCheckout() {
             await checkoutCart({
                 shipping_address: address,
                 payment_method: paymentMethod === 'gcash' ? 'gcash' : 'cash_on_delivery',
-                voucher_code: voucherCode.trim(),
+                shipping_method: shippingMethod,
                 selected_item_ids: selectedItemIds,
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
@@ -251,6 +295,35 @@ export default function CustomerCheckout() {
         } catch (error: any) {
             setNotice(error?.response?.data?.message || 'Checkout could not be completed.');
             setBusy(false);
+        }
+    }
+
+    async function applyVoucher() {
+        setVoucherBusy(true);
+        setNotice('');
+        try {
+            await prepareSanctum();
+            await api.post('/customer/cart/voucher', { code: voucherCode });
+            setVoucherCode('');
+            const response = await api.post('/customer/cart/voucher/quote', { selected_item_ids: selectedItemIds });
+            setVoucherQuote(response.data.voucher);
+        } catch (error: any) {
+            setNotice(error?.response?.data?.message || 'Unable to apply that voucher.');
+        } finally {
+            setVoucherBusy(false);
+        }
+    }
+
+    async function removeVoucher() {
+        setVoucherBusy(true);
+        try {
+            await prepareSanctum();
+            await api.delete('/customer/cart/voucher');
+            setVoucherQuote(null);
+        } catch {
+            setNotice('Unable to remove the voucher.');
+        } finally {
+            setVoucherBusy(false);
         }
     }
 
@@ -697,13 +770,19 @@ export default function CustomerCheckout() {
                                 <OrderSummary
                                     items={selectedItems}
                                     subtotal={subtotal}
-                                    shippingCost={shippingMethod === 'express' ? 99 : subtotal >= 1000 ? 0 : 0}
+                                    shippingCost={shippingCost}
                                     discount={discount}
                                     total={total}
                                     step={step}
                                     onPlaceOrder={goNext}
                                     disabled={busy || !selectedItems.length}
                                     isSubmitting={busy}
+                                    voucher={voucherQuote}
+                                    voucherCode={voucherCode}
+                                    voucherBusy={voucherBusy}
+                                    onVoucherCodeChange={setVoucherCode}
+                                    onApplyVoucher={applyVoucher}
+                                    onRemoveVoucher={removeVoucher}
                                 />
                             </div>
                         </div>

@@ -13,12 +13,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SellerProductController;
 use App\Http\Controllers\SellerShopController;
 use App\Http\Controllers\TestGeminiImageController;
-use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\VoucherManagementController;
+use App\Services\VoucherService;
+use App\Http\Middleware\RequestDeviceModelHint;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SiteSetting;
-use App\Models\Voucher;
+use App\Models\Wishlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -75,20 +77,25 @@ $storefrontProps = fn (?int $userId = null) => [
     'categories' => Category::query()->withCount('products')->orderBy('name')->get(['id', 'name', 'slug', 'image']),
     'products' => Product::published()
         ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])
+        ->withSum(['variants as active_variant_stock' => fn ($query) => $query->where('is_active', true)], 'stock_quantity')
+        ->withAvg('reviews', 'rating')
         ->withCount('reviews')
+        ->when($userId, fn ($query) => $query->withExists(['wishlists as is_favorited' => fn ($wishlistQuery) => $wishlistQuery->where('user_id', $userId)]))
         ->latest()
-        ->limit(20)
-        ->get(),
-    'availableVouchers' => Voucher::with('shop:id,name')
-        ->where(function ($query) {
-            $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+        ->get()
+        ->map(function (Product $product) {
+            $variantStock = $product->active_variant_stock;
+            $availableStock = $variantStock !== null ? (int) $variantStock : 0;
+
+            return array_merge($product->toArray(), [
+                'average_rating' => $product->reviews_avg_rating ? round((float) $product->reviews_avg_rating, 1) : 0,
+                'review_count' => (int) $product->reviews_count,
+                'available_stock' => $availableStock,
+                'is_out_of_stock' => $availableStock < 1,
+                'is_favorited' => (bool) ($product->is_favorited ?? false),
+            ]);
         })
-        ->where(function ($query) {
-            $query->whereNull('usage_limit')->orWhereColumn('times_used', '<', 'usage_limit');
-        })
-        ->when($userId, fn ($query) => $query->whereDoesntHave('redemptions', fn ($redemptionQuery) => $redemptionQuery->where('user_id', $userId)))
-        ->latest()
-        ->get(['id', 'code', 'type', 'value', 'shop_id', 'min_spend', 'expires_at']),
+        ->values(),
 ];
 
 Route::get('/', function (Request $request) use ($storefrontProps) {
@@ -213,7 +220,7 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
     ], 404);
 })->name('test.gemini');
 
-Route::get('/products/{product}', function (Product $product) {
+Route::get('/products/{product}', function (Product $product, VoucherService $vouchers) {
     abort_unless($product->status !== 'rejected', 404);
 
     $similarProducts = Product::published()
@@ -242,6 +249,7 @@ Route::get('/products/{product}', function (Product $product) {
             'variants.optionValues.optionValue.option',
         ]),
         'similarProducts' => $similarProducts,
+        'availableVouchers' => $vouchers->availableForProduct($product, auth()->user()),
     ]);
 })->name('products.show');
 
@@ -295,13 +303,20 @@ Route::middleware(['guest', 'throttle:5,1'])->group(function () {
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('admin.profile');
-    Route::get('/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
+    Route::get('/settings', [AdminSettingsController::class, 'index'])->middleware(RequestDeviceModelHint::class)->name('admin.settings');
+        Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('admin.vouchers');
+        Route::get('/vouchers/products', [VoucherManagementController::class, 'products'])->name('admin.vouchers.products');
+        Route::get('/vouchers/{voucher}', [VoucherManagementController::class, 'show'])->name('admin.vouchers.show');
+        Route::post('/vouchers', [VoucherManagementController::class, 'store'])->name('admin.vouchers.store');
+        Route::patch('/vouchers/{voucher}', [VoucherManagementController::class, 'update'])->name('admin.vouchers.update');
+        Route::post('/vouchers/{voucher}/toggle', [VoucherManagementController::class, 'toggle'])->name('admin.vouchers.toggle');
+        Route::post('/vouchers/{voucher}/duplicate', [VoucherManagementController::class, 'duplicate'])->name('admin.vouchers.duplicate');
+        Route::delete('/vouchers/{voucher}', [VoucherManagementController::class, 'destroy'])->name('admin.vouchers.destroy');
     Route::post('/settings/cache/clear', [AdminSettingsController::class, 'clearCache'])->name('admin.settings.cache.clear');
     Route::post('/settings/logs/clear', [AdminSettingsController::class, 'clearLogs'])->name('admin.settings.logs.clear');
     Route::post('/settings/categories/clear', [AdminSettingsController::class, 'clearCategories'])->name('admin.settings.categories.clear');
     Route::post('/settings/products/clear', [AdminSettingsController::class, 'clearProducts'])->name('admin.settings.products.clear');
     Route::post('/settings/orders/clear', [AdminSettingsController::class, 'clearOrders'])->name('admin.settings.orders.clear');
-    Route::post('/settings/vouchers/clear', [AdminSettingsController::class, 'clearVouchers'])->name('admin.settings.vouchers.clear');
     Route::post('/settings/home-content', [AdminSettingsController::class, 'saveHomeContent'])->name('admin.settings.home-content');
     Route::get('/sellers', fn () => Inertia::render('admin/sellers'))->name('admin.sellers');
     Route::get('/customers', [AdminUserController::class, 'customers'])->name('admin.customers');
@@ -318,15 +333,19 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::post('/categories/{category}', [AdminCategoryController::class, 'update'])->name('admin.categories.update.post');
     Route::patch('/categories/{category}', [AdminCategoryController::class, 'update'])->name('admin.categories.update');
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('admin.categories.destroy');
-    Route::get('/vouchers', [VoucherController::class, 'index'])->name('admin.vouchers');
-    Route::post('/vouchers', [VoucherController::class, 'store'])->name('admin.vouchers.store');
-    Route::patch('/vouchers/{voucher}', [VoucherController::class, 'update'])->name('admin.vouchers.update');
-    Route::delete('/vouchers/{voucher}', [VoucherController::class, 'destroy'])->name('admin.vouchers.destroy');
 });
 
 Route::middleware(['auth', 'role:seller'])->prefix('seller')->group(function () {
     Route::get('/', fn () => Inertia::render('seller/dashboard'))->name('seller.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('seller.profile');
+        Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('seller.vouchers');
+        Route::get('/vouchers/products', [VoucherManagementController::class, 'products'])->name('seller.vouchers.products');
+        Route::get('/vouchers/{voucher}', [VoucherManagementController::class, 'show'])->name('seller.vouchers.show');
+        Route::post('/vouchers', [VoucherManagementController::class, 'store'])->name('seller.vouchers.store');
+        Route::patch('/vouchers/{voucher}', [VoucherManagementController::class, 'update'])->name('seller.vouchers.update');
+        Route::post('/vouchers/{voucher}/toggle', [VoucherManagementController::class, 'toggle'])->name('seller.vouchers.toggle');
+        Route::post('/vouchers/{voucher}/duplicate', [VoucherManagementController::class, 'duplicate'])->name('seller.vouchers.duplicate');
+        Route::delete('/vouchers/{voucher}', [VoucherManagementController::class, 'destroy'])->name('seller.vouchers.destroy');
     Route::get('/products', [SellerProductController::class, 'index'])->name('seller.products');
     Route::post('/products/ai-analyze', [ProductAIController::class, 'analyze'])->name('seller.products.ai-analyze');
     Route::post('/products', [SellerProductController::class, 'store'])->name('seller.products.store');
@@ -336,25 +355,39 @@ Route::middleware(['auth', 'role:seller'])->prefix('seller')->group(function () 
     Route::get('/shop', [SellerShopController::class, 'show'])->name('seller.shop');
     Route::post('/shop', [SellerShopController::class, 'update'])->name('seller.shop.store');
     Route::patch('/shop', [SellerShopController::class, 'update'])->name('seller.shop.update');
-    Route::get('/vouchers', [VoucherController::class, 'index'])->name('seller.vouchers');
-    Route::post('/vouchers', [VoucherController::class, 'store'])->name('seller.vouchers.store');
-    Route::patch('/vouchers/{voucher}', [VoucherController::class, 'update'])->name('seller.vouchers.update');
-    Route::delete('/vouchers/{voucher}', [VoucherController::class, 'destroy'])->name('seller.vouchers.destroy');
 });
 
 Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function () use ($storefrontProps) {
     Route::get('/', fn () => to_route('customer.profile'))->name('customer.account');
-    Route::get('/products', fn () => Inertia::render('customer/products', $storefrontProps()))->name('customer.products');
-    Route::get('/categories', fn () => Inertia::render('customer/categories', [
-        'categories' => Category::query()
-            ->withCount('products')
-            ->whereNull('parent_id')
-            ->with([
-                'children:id,parent_id,name,slug,image',
-            ])
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'image']),
-    ]))->name('customer.categories');
+    Route::get('/products', function (Request $request) {
+        $userId = $request->user()?->id;
+        $products = Product::published()
+            ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($q) => $q->where('is_primary', true)->limit(1)])
+            ->withSum(['variants as active_variant_stock' => fn ($q) => $q->where('is_active', true)], 'stock_quantity')
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->when($userId, fn ($q) => $q->withExists(['wishlists as is_favorited' => fn ($wq) => $wq->where('user_id', $userId)]))
+            ->latest()
+            ->get()
+            ->map(function (Product $product) {
+                $variantStock = $product->active_variant_stock;
+                $availableStock = $variantStock !== null ? (int) $variantStock : 0;
+                return array_merge($product->toArray(), [
+                    'average_rating' => $product->reviews_avg_rating ? round((float) $product->reviews_avg_rating, 1) : 0,
+                    'review_count'   => (int) $product->reviews_count,
+                    'available_stock' => $availableStock,
+                    'is_out_of_stock' => $availableStock < 1,
+                    'is_favorited'   => (bool) ($product->is_favorited ?? false),
+                ]);
+            })
+            ->values();
+
+        return Inertia::render('customer/products', [
+            'products'   => $products,
+            'categories' => Category::query()->orderBy('name')->get(['id', 'name', 'slug']),
+        ]);
+    })->name('customer.products');
+    Route::redirect('/categories', '/customer/products')->name('customer.categories');
     Route::get('/categories/{category}', function (string $category) {
         $categoryModel = Category::query()
             ->where('slug', $category)
@@ -377,6 +410,17 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
     Route::get('/favorites', fn () => Inertia::render('customer/favorites', [
         'products' => Product::query()->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])->latest()->get(),
     ]))->name('customer.favorites');
+    Route::post('/favorites/{product}/toggle', function (Request $request, Product $product) {
+        $wishlist = Wishlist::query()->where('user_id', $request->user()->id)->where('product_id', $product->id)->first();
+
+        if ($wishlist) {
+            $wishlist->delete();
+        } else {
+            Wishlist::create(['user_id' => $request->user()->id, 'product_id' => $product->id]);
+        }
+
+        return back();
+    })->name('customer.favorites.toggle');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('customer.profile');
     Route::get('/settings', fn () => Inertia::render('customer/settings'))->name('customer.settings');
     Route::get('/settings/notifications', fn () => Inertia::render('customer/settings/notifications'))->name('customer.settings.notifications');
@@ -384,21 +428,6 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
     Route::get('/settings/security', fn () => Inertia::render('customer/settings/security'))->name('customer.settings.security');
     Route::get('/settings/password', fn () => Inertia::render('customer/settings/password'))->name('customer.settings.password');
     Route::get('/settings/saved-preferences', fn () => Inertia::render('customer/settings/saved-preferences'))->name('customer.settings.saved-preferences');
-    Route::get('/vouchers', function (Request $request) {
-        return Inertia::render('customer/vouchers', [
-            'vouchers' => Voucher::query()
-                ->with('shop:id,name')
-                ->where(function ($query) {
-                    $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                })
-                ->where(function ($query) {
-                    $query->whereNull('usage_limit')->orWhereColumn('times_used', '<', 'usage_limit');
-                })
-                ->when($request->user()?->id, fn ($query, $userId) => $query->whereDoesntHave('redemptions', fn ($redemptionQuery) => $redemptionQuery->where('user_id', $userId)))
-                ->latest()
-                ->get(['id', 'code', 'type', 'value', 'shop_id', 'min_spend', 'expires_at']),
-        ]);
-    })->name('customer.vouchers');
     Route::get('/cart', fn () => Inertia::render('customer/cart'))->name('customer.cart');
     Route::get('/checkout', function (Request $request) {
         return Inertia::render('customer/checkout', [
@@ -406,6 +435,10 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
         ]);
     })->name('customer.checkout');
     Route::get('/orders', fn () => Inertia::render('customer/orders'))->name('customer.orders');
+        Route::get('/vouchers', fn (Request $request, VoucherService $vouchers) => Inertia::render('vouchers/customer', [
+            'claims' => $request->user()->voucherClaims()->with('voucher')->latest()->get(),
+            'available' => $vouchers->availableForCustomer($request->user()),
+        ]))->name('customer.vouchers');
     Route::get('/order-tracking', fn () => Inertia::render('customer/order-tracking'))->name('customer.order-tracking');
     Route::get('/orders/{order}', fn (Request $request, Order $order) => abort_unless($order->user_id === $request->user()->id, 403) ?: Inertia::render('customer/order-detail', ['orderId' => $order->id]))->name('customer.order');
 });

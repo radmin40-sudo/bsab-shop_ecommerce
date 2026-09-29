@@ -1,9 +1,9 @@
 import { PortalLayout } from '@/components/portal-layout';
-import { api, checkoutCart, currentUser, removeCartItem, updateCartItem, validateVoucher } from '@/lib/api';
+import { api, checkoutCart, currentUser, prepareSanctum, removeCartItem, updateCartItem } from '@/lib/api';
 import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, BadgePercent, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { ArrowRight, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 type CartItem = {
@@ -18,18 +18,13 @@ type CartItem = {
 };
 type CartShop = NonNullable<NonNullable<CartItem['product']>['shop']>;
 type CartShopWithQr = Omit<CartShop, 'gcash_qr_code_url'> & { gcash_qr_code_url: string };
-type CartData = { items: CartItem[]; available_vouchers?: AvailableVoucher[] };
+type CartData = {
+    items: CartItem[];
+    voucher?: { id: number; code: string; name: string } | null;
+    voucher_quote?: { code: string; discount: number; eligible_subtotal: number } | null;
+};
 type AddressForm = { full_name: string; phone: string; line1: string; city: string; province: string; postal_code: string };
 type UserAddress = AddressForm & { is_default: boolean };
-type AvailableVoucher = {
-    id: number;
-    code: string;
-    type: string;
-    value: string;
-    min_spend: string;
-    expires_at?: string | null;
-    shop?: { name: string } | null;
-};
 
 function formatPrice(n: number) {
     return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
@@ -51,20 +46,14 @@ export default function CustomerCart() {
         queryFn: async () => (await api.get('/customer/cart')).data,
     });
     const items: CartItem[] = data?.items || [];
-    const availableVouchers: AvailableVoucher[] = data?.available_vouchers || [];
 
     const [busyId, setBusyId] = useState<number | null>(null);
     const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [checkoutBusy, setCheckoutBusy] = useState(false);
-    const [voucherCode, setVoucherCode] = useState(() => {
-        if (typeof window === 'undefined') return '';
-        return window.localStorage.getItem('sprig-claimed-voucher-code') || '';
-    });
-    const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discount: number } | null>(null);
-    const [usedVoucherCode, setUsedVoucherCode] = useState('');
-    const [voucherBusy, setVoucherBusy] = useState(false);
     const [notice, setNotice] = useState('');
+    const [voucherCode, setVoucherCode] = useState('');
+    const [voucherBusy, setVoucherBusy] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'gcash'>('cash_on_delivery');
     const [gcashReceipt, setGcashReceipt] = useState<File | null>(null);
     const [qrPreview, setQrPreview] = useState<{ name: string; url: string } | null>(null);
@@ -78,7 +67,8 @@ export default function CustomerCart() {
     });
 
     const subtotal = items.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
-    const total = Math.max(0, subtotal - (appliedVoucher?.discount || 0));
+    const discount = Number(data?.voucher_quote?.discount ?? 0);
+    const total = Math.max(0, subtotal - discount);
     const shopsWithQr = Array.from(
         new Map<number, CartShopWithQr>(
             items.flatMap((item) => {
@@ -98,7 +88,6 @@ export default function CustomerCart() {
                 ? { ...current, items: current.items.map((cartItem) => (cartItem.id === item.id ? { ...cartItem, quantity } : cartItem)) }
                 : current,
         );
-        setAppliedVoucher(null);
         try {
             await updateCartItem(item.id, quantity);
             await queryClient.invalidateQueries({ queryKey: ['cart'] });
@@ -117,7 +106,6 @@ export default function CustomerCart() {
         queryClient.setQueryData<CartData>(['cart'], (current) =>
             current ? { ...current, items: current.items.filter((cartItem) => cartItem.id !== item.id) } : current,
         );
-        setAppliedVoucher(null);
         try {
             await removeCartItem(item.id);
             await queryClient.invalidateQueries({ queryKey: ['cart'] });
@@ -129,18 +117,30 @@ export default function CustomerCart() {
         }
     }
 
-    async function applyVoucher(event: React.FormEvent) {
-        event.preventDefault();
-        if (!voucherCode.trim()) return;
+    async function applyVoucher() {
         setVoucherBusy(true);
         setNotice('');
         try {
-            setAppliedVoucher(await validateVoucher(voucherCode.trim(), subtotal));
+            await prepareSanctum();
+            await api.post('/customer/cart/voucher', { code: voucherCode });
+            setVoucherCode('');
+            await queryClient.invalidateQueries({ queryKey: ['cart'] });
         } catch (error: unknown) {
-            setAppliedVoucher(null);
-            const message = apiErrorMessage(error, 'That voucher code is not valid.');
-            if (message === 'You have already used this voucher.') setUsedVoucherCode(voucherCode.trim().toUpperCase());
-            setNotice(message);
+            setNotice(apiErrorMessage(error, 'Unable to apply that voucher.'));
+        } finally {
+            setVoucherBusy(false);
+        }
+    }
+
+    async function removeVoucher() {
+        setVoucherBusy(true);
+        setNotice('');
+        try {
+            await prepareSanctum();
+            await api.delete('/customer/cart/voucher');
+            await queryClient.invalidateQueries({ queryKey: ['cart'] });
+        } catch (error: unknown) {
+            setNotice(apiErrorMessage(error, 'Unable to remove the voucher.'));
         } finally {
             setVoucherBusy(false);
         }
@@ -178,7 +178,6 @@ export default function CustomerCart() {
             await checkoutCart({
                 shipping_address: address,
                 payment_method: paymentMethod,
-                voucher_code: appliedVoucher?.code || '',
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
             router.visit('/customer/orders');
@@ -322,75 +321,51 @@ export default function CustomerCart() {
                                     </span>
                                     <span className="font-medium text-[#163b24]">{formatPrice(subtotal)}</span>
                                 </div>
-                                {appliedVoucher && (
-                                    <div className="flex justify-between font-semibold text-[#2c7a3b]">
-                                        <span>Voucher discount</span>
-                                        <span>-{formatPrice(appliedVoucher.discount)}</span>
-                                    </div>
-                                )}
                                 <div className="flex justify-between">
                                     <span>Shipping</span>
                                     <span className="text-xs text-[#647568]">At checkout</span>
                                 </div>
+                                <div className="border-t border-[#e6f7eb] pt-3">
+                                    <p className="mb-2 font-semibold text-[#163b24]">Voucher</p>
+                                    {data?.voucher_quote ? (
+                                        <div className="flex items-center justify-between gap-2 rounded-lg bg-[#edf8ef] px-3 py-2 text-xs text-[#1f7a42]">
+                                            <span className="truncate">
+                                                <b>{data.voucher_quote.code}</b> applied
+                                            </span>
+                                            <button type="button" disabled={voucherBusy} onClick={removeVoucher} className="font-bold underline">
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <input
+                                                value={voucherCode}
+                                                onChange={(event) => setVoucherCode(event.target.value.toUpperCase())}
+                                                placeholder="Enter voucher code"
+                                                className="min-w-0 flex-1 rounded-lg border border-[#def0e2] px-3 py-2 text-xs uppercase outline-none focus:border-[#2c9350]"
+                                            />
+                                            <button
+                                                type="button"
+                                                disabled={voucherBusy || !voucherCode.trim()}
+                                                onClick={applyVoucher}
+                                                className="rounded-lg bg-[#1f7a42] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {discount > 0 && (
+                                    <div className="flex justify-between font-semibold text-[#1f7a42]">
+                                        <span>Voucher discount</span>
+                                        <span>-{formatPrice(discount)}</span>
+                                    </div>
+                                )}
                             </div>
                             <div className="my-5 border-t border-[#e6f7eb]" />
                             <div className="flex justify-between text-[15px] font-bold text-[#163b24]">
                                 <span>Total Cost</span>
                                 <span>{formatPrice(total)}</span>
-                            </div>
-
-                            {/* Promo code */}
-                            <div className="mt-5">
-                                {availableVouchers.length > 0 && !appliedVoucher && (
-                                    <select
-                                        value={availableVouchers.some((v) => v.code === voucherCode) ? voucherCode : ''}
-                                        onChange={(e) => {
-                                            setVoucherCode(e.target.value);
-                                            setNotice('');
-                                        }}
-                                        className="mb-2 w-full rounded-xl border border-[#def0e2] bg-[#f5fcf7] px-3 py-2.5 text-sm text-[#163b24] outline-none focus:border-[#2c9350]"
-                                    >
-                                        <option value="">Choose an available voucher</option>
-                                        {availableVouchers.map((v) => (
-                                            <option key={v.id} value={v.code}>
-                                                {v.code} · {v.type === 'percent' ? `${v.value}% off` : `₱${v.value} off`}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                                {appliedVoucher ? (
-                                    <div className="flex items-center justify-between rounded-xl bg-[#edf7ed] px-3 py-2.5 text-sm font-semibold text-[#2c7a3b]">
-                                        <div className="flex items-center gap-2">
-                                            <BadgePercent size={15} />
-                                            <span>{appliedVoucher.code} applied</span>
-                                        </div>
-                                        <button type="button" onClick={() => setAppliedVoucher(null)} aria-label="Remove voucher">
-                                            <X size={15} />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <form onSubmit={applyVoucher} className="flex gap-2">
-                                        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#def0e2] bg-[#f5fcf7] px-3 py-2.5">
-                                            <BadgePercent size={15} className="shrink-0 text-[#647568]" />
-                                            <input
-                                                value={voucherCode}
-                                                onChange={(e) => {
-                                                    setVoucherCode(e.target.value);
-                                                    setNotice('');
-                                                }}
-                                                disabled={usedVoucherCode === voucherCode.trim().toUpperCase()}
-                                                placeholder="Promo Code"
-                                                className="w-full bg-transparent text-sm text-[#163b24] outline-none placeholder:text-[#9fb6a6] disabled:cursor-not-allowed disabled:opacity-60"
-                                            />
-                                        </div>
-                                        <button
-                                            disabled={voucherBusy || usedVoucherCode === voucherCode.trim().toUpperCase()}
-                                            className="rounded-xl bg-[#1f7a42] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#163b24] disabled:opacity-50"
-                                        >
-                                            {voucherBusy ? '…' : 'Apply'}
-                                        </button>
-                                    </form>
-                                )}
                             </div>
 
                             {/* Checkout */}

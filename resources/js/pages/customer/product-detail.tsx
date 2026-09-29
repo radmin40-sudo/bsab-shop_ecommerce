@@ -1,6 +1,6 @@
-import { addCartItem, getApiErrorMessage } from '@/lib/api';
+import { addCartItem, api, getApiErrorMessage, prepareSanctum } from '@/lib/api';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
@@ -13,6 +13,7 @@ import {
     ShieldCheck,
     ShoppingCart,
     Star,
+    TicketPercent,
     Truck,
     UserRound,
 } from 'lucide-react';
@@ -123,6 +124,19 @@ type Product = {
 type ProductDetailPageProps = {
     product: Product;
     similarProducts?: Product[];
+    availableVouchers?: VoucherOffer[];
+};
+
+type VoucherOffer = {
+    id: number;
+    name: string;
+    code: string;
+    type: string;
+    discount_value: string;
+    minimum_spend: string;
+    expires_at: string | null;
+    requires_claim: boolean;
+    claimed_by_user: boolean;
 };
 
 function imageUrl(path?: string) {
@@ -134,11 +148,15 @@ function formatPrice(value: number | string) {
     return `₱${cleanValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function ProductDetail({ product, similarProducts = [] }: ProductDetailPageProps) {
+export default function ProductDetail({ product, similarProducts = [], availableVouchers = [] }: ProductDetailPageProps) {
     const { auth } = usePage<SharedData>().props;
     const [selectedImage, setSelectedImage] = useState(product.images?.[0]?.path ?? null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
+    const [claimedVoucherIds, setClaimedVoucherIds] = useState(
+        availableVouchers.filter((voucher) => voucher.claimed_by_user).map((voucher) => voucher.id),
+    );
+    const [claimingVoucherId, setClaimingVoucherId] = useState<number | null>(null);
     const productOptions = product.options ?? [];
     const variantOptions = productOptions.filter((option) =>
         (product.variants ?? []).some((variant) =>
@@ -250,6 +268,26 @@ export default function ProductDetail({ product, similarProducts = [] }: Product
             setMessage(getApiErrorMessage(error));
         } finally {
             setBusy(false);
+        }
+    }
+
+    async function claimVoucher(voucherId: number) {
+        if (!auth.user) {
+            router.visit('/login');
+            return;
+        }
+
+        setClaimingVoucherId(voucherId);
+        setMessage('');
+        try {
+            await prepareSanctum();
+            await api.post(`/customer/vouchers/${voucherId}/claim`);
+            setClaimedVoucherIds((ids) => [...ids, voucherId]);
+            setMessage('Voucher claimed. Add this product to your cart to use it.');
+        } catch (error) {
+            setMessage(getApiErrorMessage(error, 'Unable to claim this voucher.'));
+        } finally {
+            setClaimingVoucherId(null);
         }
     }
 
@@ -385,6 +423,72 @@ export default function ProductDetail({ product, similarProducts = [] }: Product
                                             </>
                                         ) : null}
                                     </div>
+
+                                    {availableVouchers.length > 0 && (
+                                        <section className="mt-5 space-y-2" aria-label="Available product vouchers">
+                                            <h2 className="text-sm font-bold text-[#163b24]">Available Vouchers</h2>
+                                            {availableVouchers.slice(0, 3).map((voucher) => {
+                                                const claimed = claimedVoucherIds.includes(voucher.id);
+
+                                                return (
+                                                    <div
+                                                        key={voucher.id}
+                                                        className="flex items-center gap-3 rounded-xl border border-[#cfe8d4] bg-[#f3fbf5] p-3"
+                                                    >
+                                                        <TicketPercent size={22} className="shrink-0 text-[#1f7a42]" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-bold text-[#163b24]">
+                                                                {voucher.type === 'percentage'
+                                                                    ? `${voucher.discount_value}% OFF`
+                                                                    : voucher.type === 'free_shipping'
+                                                                      ? 'Free shipping'
+                                                                      : `${formatPrice(voucher.discount_value)} OFF`}
+                                                            </p>
+                                                            <p className="truncate text-xs text-[#647568]">
+                                                                Min. spend {formatPrice(voucher.minimum_spend)} · Code {voucher.code}
+                                                            </p>
+                                                        </div>
+                                                        {voucher.requires_claim && !claimed ? (
+                                                            <button
+                                                                type="button"
+                                                                disabled={claimingVoucherId === voucher.id}
+                                                                onClick={() => claimVoucher(voucher.id)}
+                                                                className="rounded-lg bg-[#1f7a42] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                                            >
+                                                                {claimingVoucherId === voucher.id ? 'Claiming…' : 'Claim'}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    if (!auth.user) {
+                                                                        router.visit('/login');
+                                                                        return;
+                                                                    }
+                                                                    await addToCart();
+                                                                    try {
+                                                                        await prepareSanctum();
+                                                                        await api.post('/customer/cart/voucher', { code: voucher.code });
+                                                                        router.visit('/customer/cart');
+                                                                    } catch (error) {
+                                                                        setMessage(
+                                                                            getApiErrorMessage(
+                                                                                error,
+                                                                                'The voucher could not be applied to this cart.',
+                                                                            ),
+                                                                        );
+                                                                    }
+                                                                }}
+                                                                className="rounded-lg border border-[#9dc7a7] px-3 py-2 text-xs font-bold text-[#1f7a42]"
+                                                            >
+                                                                Use Now
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </section>
+                                    )}
 
                                     <p className="mt-7 max-w-152 text-[1.06rem] leading-8 text-[#465b50] lg:hidden">
                                         {product.description ||
@@ -772,11 +876,11 @@ export default function ProductDetail({ product, similarProducts = [] }: Product
                     Cart
                 </Link>
                 <Link
-                    href={auth.user ? route('customer.account') : route('login')}
+                    href={auth.user ? route('customer.profile') : route('login')}
                     className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
                 >
                     <UserRound size={19} />
-                    Account
+                    Profile
                 </Link>
             </nav>
         </>

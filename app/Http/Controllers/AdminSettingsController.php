@@ -7,8 +7,8 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SiteSetting;
-use App\Models\Voucher;
 use App\Services\ImageOptimizationService;
+use App\Support\ClientMetadata;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +20,23 @@ use Inertia\Response;
 
 class AdminSettingsController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'Viewed admin settings',
+            'metadata' => [
+                'event_type' => 'activity',
+                'status' => 'success',
+                'message' => 'Admin settings page viewed',
+                'method' => $request->method(),
+                'route' => $request->route()?->uri(),
+                'request_source' => 'web',
+                'ip_address' => $request->ip(),
+                ...ClientMetadata::fromUserAgent($request->userAgent(), $request->header('Sec-CH-UA-Model')),
+            ],
+        ]);
+
         $logPath = storage_path('logs/laravel.log');
         $logLines = File::exists($logPath)
             ? array_slice(file($logPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], -80)
@@ -83,6 +98,7 @@ class AdminSettingsController extends Controller
             'role' => $log->user?->role,
             'method' => $metadata['method'] ?? null,
             'route' => $metadata['route'] ?? null,
+            'requestSource' => $metadata['request_source'] ?? null,
             'statusCode' => $metadata['status_code'] ?? null,
             'ip' => $metadata['ip_address'] ?? null,
             'device' => $metadata['device'] ?? null,
@@ -98,6 +114,23 @@ class AdminSettingsController extends Controller
     {
         if (! preg_match('/^\[([^\]]+)\].*?\.([A-Z]+):\s?(.*)$/', $line, $matches)) {
             return null;
+        }
+
+        $message = $matches[3];
+        $context = [];
+
+        if (preg_match('/\s(\{.*\})$/', $message, $contextMatches)) {
+            $decodedContext = json_decode($contextMatches[1], true);
+
+            if (is_array($decodedContext) && (isset($decodedContext['ip_address']) || isset($decodedContext['user_agent']))) {
+                $context = $decodedContext;
+                $message = trim(substr($message, 0, -strlen($contextMatches[0])));
+            }
+        }
+
+        if (! isset($context['ip_address']) && preg_match('/`ip_address`\s*=\s*([^,]+),\s*`user_agent`\s*=\s*(.*?)\s+where\s+`/i', $message, $requestMatches)) {
+            $context['ip_address'] = trim($requestMatches[1]);
+            $context = array_merge($context, ClientMetadata::fromUserAgent(trim($requestMatches[2])), ['request_source' => 'web']);
         }
 
         $level = strtolower($matches[2]);
@@ -118,15 +151,16 @@ class AdminSettingsController extends Controller
             'user' => 'System',
             'email' => null,
             'role' => null,
-            'method' => null,
-            'route' => null,
+            'method' => $context['method'] ?? null,
+            'route' => $context['route'] ?? null,
+            'requestSource' => $context['request_source'] ?? null,
             'statusCode' => null,
-            'ip' => null,
-            'device' => null,
-            'browser' => null,
-            'operatingSystem' => null,
-            'userAgent' => null,
-            'message' => $matches[3],
+            'ip' => $context['ip_address'] ?? null,
+            'device' => $context['device'] ?? null,
+            'browser' => $context['browser'] ?? null,
+            'operatingSystem' => $context['operating_system'] ?? null,
+            'userAgent' => $context['user_agent'] ?? null,
+            'message' => $message,
             'trace' => null,
         ];
     }
@@ -168,13 +202,6 @@ class AdminSettingsController extends Controller
         Order::withTrashed()->forceDelete();
 
         return back()->with('success', 'All orders were permanently deleted successfully.');
-    }
-
-    public function clearVouchers(): RedirectResponse
-    {
-        Voucher::query()->delete();
-
-        return back()->with('success', 'All vouchers were deleted successfully.');
     }
 
     public function saveHomeContent(Request $request, ImageOptimizationService $images): RedirectResponse

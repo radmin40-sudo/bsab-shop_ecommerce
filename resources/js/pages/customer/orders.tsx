@@ -90,6 +90,12 @@ export default function CustomerOrders() {
                                         <p className="font-display mt-1 text-xl font-bold text-[#163b24]">
                                             ₱{Number(order.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </p>
+                                        {order.voucher_code_snapshot && (
+                                            <p className="mt-1 text-xs font-semibold text-[#1f7a42]">
+                                                {order.voucher_code_snapshot} · saved discount ₱
+                                                {Number(order.discount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </p>
+                                        )}
                                         <Link
                                             href={
                                                 order.items?.[0]?.id

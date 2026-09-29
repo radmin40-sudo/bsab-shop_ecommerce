@@ -33,4 +33,9 @@ class ProductVariant extends Model
     {
         return $this->hasMany(InventoryMovement::class, 'product_variant_id');
     }
+
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'voucher_variants', 'product_variant_id', 'voucher_id')->withTimestamps();
+    }
 }

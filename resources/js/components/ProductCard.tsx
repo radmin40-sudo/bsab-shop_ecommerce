@@ -1,4 +1,4 @@
-import { Heart } from 'lucide-react';
+import { Heart, Star } from 'lucide-react';
 
 interface Product {
     id: number;
@@ -7,6 +7,11 @@ interface Product {
     base_price: string;
     sale_price?: string | null;
     stock_quantity: number;
+    available_stock?: number;
+    is_out_of_stock?: boolean;
+    average_rating?: number;
+    review_count?: number;
+    selling_unit?: string | null;
     category?: { name: string; slug: string } | null;
     shop?: { name: string } | null;
     images?: { path: string }[];
@@ -27,10 +32,11 @@ export default function ProductCard({ product, liked, onToggleFavorite, onOpenPr
     const image = imageUrl(product.images?.[0]?.path);
     const price = product.sale_price ?? product.base_price;
     const isSale = !!product.sale_price && Number(product.sale_price) < Number(product.base_price);
-    const isSold = product.stock_quantity < 1;
-    const discountPct = isSale ? Math.round((1 - Number(product.sale_price) / Number(product.base_price)) * 100) : 0;
+    const isSold = (product.is_out_of_stock ?? product.stock_quantity < 1) || false;
+    const availableStock = product.available_stock ?? product.stock_quantity;
+    const averageRating = Number(product.average_rating ?? 0);
+    const reviewCount = Number(product.review_count ?? 0);
 
-    // initials placeholder
     const initials = product.shop?.name
         ? product.shop.name
               .split(' ')
@@ -58,15 +64,12 @@ export default function ProductCard({ product, liked, onToggleFavorite, onOpenPr
             role="link"
             tabIndex={0}
         >
-            {/* Image area */}
             <div className="card-media">
                 {image ? (
                     <img src={image} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
                     <div className="ph">{initials}</div>
                 )}
-
-                {isSale && <span className="discount-tag">-{discountPct}%</span>}
 
                 <button
                     onClick={(event) => {
@@ -75,26 +78,36 @@ export default function ProductCard({ product, liked, onToggleFavorite, onOpenPr
                     }}
                     aria-label={liked ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
                     className={`fav-chip${liked ? 'active' : ''}`}
+                    aria-pressed={liked}
                 >
-                    <Heart size={15} fill={liked ? 'currentColor' : 'none'} />
+                    <Heart size={15} fill={liked ? '#2c9350' : 'none'} />
                 </button>
+
+                {isSale && <span className="discount-tag">Sale</span>}
             </div>
 
-            {/* Body */}
             <div className="card-body">
-                <p className="card-shop">{product.shop?.name ?? ''}</p>
+                <span className="card-shop">{product.category?.name ?? 'Marketplace'}</span>
                 <h3 className="card-name">{product.name}</h3>
+
+                <div className="rating-row" aria-label={`${averageRating.toFixed(1)} out of 5 stars`}>
+                    <span className="rating-stars">
+                        {Array.from({ length: 5 }, (_, index) => (
+                            <Star key={index} size={11} fill={averageRating >= index + 1 ? 'currentColor' : 'none'} strokeWidth={1.8} />
+                        ))}
+                    </span>
+                    <span className="rating-score">{averageRating.toFixed(1)}</span>
+                    <span className="rating-count">({reviewCount})</span>
+                </div>
 
                 <div className="price-row">
                     <div className="price-group">
                         <span className="price">{money(price)}</span>
-                        {isSale && <span className="price-old">{money(product.base_price)}</span>}
+                        {product.selling_unit && <span className="unit">/{product.selling_unit}</span>}
                     </div>
-
-                    {isSold && <span className="sold-label">Sold out</span>}
                 </div>
 
-                <p className="stock-note">{isSold ? 'Restocking soon' : `${product.stock_quantity} left`}</p>
+                <p className={`stock-note ${isSold ? 'out' : ''}`}>{isSold ? 'Out of stock' : `${availableStock} available`}</p>
             </div>
         </article>
     );

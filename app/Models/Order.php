@@ -9,7 +9,7 @@ class Order extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['order_number', 'user_id', 'status', 'subtotal', 'shipping_fee', 'tax', 'discount', 'total', 'shipping_address', 'payment_method', 'payment_status'];
+    protected $fillable = ['order_number', 'user_id', 'status', 'subtotal', 'shipping_fee', 'tax', 'discount', 'voucher_id', 'voucher_code_snapshot', 'voucher_name_snapshot', 'total', 'shipping_address', 'payment_method', 'payment_status'];
 
     protected function casts(): array
     {
@@ -29,5 +29,15 @@ class Order extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function voucher()
+    {
+        return $this->belongsTo(Voucher::class);
+    }
+
+    public function voucherUsages()
+    {
+        return $this->hasMany(VoucherUsage::class);
     }
 }
