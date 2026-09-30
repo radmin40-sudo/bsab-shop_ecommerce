@@ -18,6 +18,7 @@ import {
     Settings,
     ShoppingBag,
     ShoppingCart,
+    SlidersHorizontal,
     Sparkles,
     Store,
     Tags,
@@ -362,6 +363,7 @@ function CustomerLayout({
 }) {
     const [accountOpen, setAccountOpen] = useState(false);
     const [search, setSearch] = useState('');
+    const { cartCount = 0 } = usePage<{ cartCount?: number }>().props;
     const customerLinks = [
         { label: 'Home', href: '/', icon: Home },
         { label: 'Products', href: '/customer/products', icon: Grid2X2 },
@@ -475,18 +477,32 @@ function CustomerLayout({
                                 className="w-full bg-transparent text-sm outline-none placeholder:text-[#9fb6a6]"
                             />
                             {search && (
-                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search">
-                                    <X size={15} className="text-[#5c6e63]" />
+                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
+                                    <X size={15} />
                                 </button>
                             )}
+                            {/* Universal filter icon - mobile size only */}
+                            <Link
+                                href="/customer/products"
+                                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#1b4332] transition hover:bg-[#eaf4ed] hover:text-[#1f7a42] active:scale-95 sm:hidden"
+                                aria-label="Browse and filter products"
+                                title="Filter products"
+                            >
+                                <SlidersHorizontal size={17} strokeWidth={2.2} />
+                            </Link>
                         </form>
                         <div className="order-1 ml-auto hidden items-center justify-end gap-2 sm:order-2 sm:ml-5 lg:order-3 lg:ml-0 lg:flex">
                             <Link
                                 href="/customer/cart"
-                                className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
-                                aria-label="Open cart"
+                                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                aria-label={`Open cart, ${cartCount} items`}
                             >
                                 <ShoppingCart size={17} />
+                                {cartCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                )}
                             </Link>
                             <div className="relative">
                                 <button
@@ -549,15 +565,21 @@ function CustomerLayout({
                 {customerLinks.map((item) => {
                     const Icon = item.icon;
                     const active = isActiveLink(item.href);
+                    const isCart = item.href === '/customer/cart';
                     return (
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-semibold transition-colors ${
+                            className={`relative flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-semibold transition-colors ${
                                 active ? 'text-[#1f7a42]' : 'text-[#9A9AA5] hover:text-[#1f7a42]'
                             }`}
                         >
                             <Icon size={22} />
+                            {isCart && cartCount > 0 && (
+                                <span className="absolute -top-0.5 left-1/2 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                    {cartCount > 99 ? '99+' : cartCount}
+                                </span>
+                            )}
                             {item.label}
                         </Link>
                     );

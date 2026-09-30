@@ -422,7 +422,19 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
         return back();
     })->name('customer.favorites.toggle');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('customer.profile');
-    Route::get('/settings', fn () => Inertia::render('customer/settings'))->name('customer.settings');
+    Route::get('/settings', function (Request $request) {
+        $user = $request->user();
+        return Inertia::render('customer/settings', [
+            'address' => $user->addresses()->where('is_default', true)->first() ?? $user->addresses()->first(),
+            'avatarUrl' => $user->avatar ? '/storage/'.$user->avatar : null,
+            'recentOrdersCount' => $user->orders()->count(),
+            'vouchersCount' => $user->voucherClaims()->count(),
+        ]);
+    })->name('customer.settings');
+    Route::post('/settings/clear-cache', function (Request $request) {
+        session()->forget(['customer_cache', 'customer_preferences', 'bsab_cart_cache']);
+        return back()->with('message', 'Cache cleared successfully');
+    })->name('customer.settings.clear-cache');
     Route::get('/settings/notifications', fn () => Inertia::render('customer/settings/notifications'))->name('customer.settings.notifications');
     Route::get('/settings/display', fn () => Inertia::render('customer/settings/display'))->name('customer.settings.display');
     Route::get('/settings/security', fn () => Inertia::render('customer/settings/security'))->name('customer.settings.security');

@@ -26,6 +26,7 @@ export interface SharedData {
     siteSettings?: Record<string, string | null>;
     quote: { message: string; author: string };
     auth: Auth;
+    cartCount?: number;
     [key: string]: unknown;
 }
 

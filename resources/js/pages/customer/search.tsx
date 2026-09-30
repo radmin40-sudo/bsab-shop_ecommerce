@@ -1,6 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Grid2X2, Heart, Home, Image as ImageIcon, Search, ShoppingCart, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ArrowLeft, Check, Grid2X2, Heart, Home, Image as ImageIcon, Search, ShoppingCart, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 type Product = {
     id: number;
@@ -18,6 +18,19 @@ function imageUrl(path?: string) {
 
 export default function SearchPage({ query = '', products = [] }: { query?: string; products?: Product[] }) {
     const [search, setSearch] = useState(query);
+    const { cartCount = 0 } = usePage<{ cartCount?: number }>().props;
+    const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
+    const [filterOpen, setFilterOpen] = useState(false);
+
+    const sortedProducts = useMemo(() => {
+        const list = [...products];
+        if (sortBy === 'price-asc') {
+            list.sort((a, b) => parseFloat(a.sale_price ?? a.base_price) - parseFloat(b.sale_price ?? b.base_price));
+        } else if (sortBy === 'price-desc') {
+            list.sort((a, b) => parseFloat(b.sale_price ?? b.base_price) - parseFloat(a.sale_price ?? a.base_price));
+        }
+        return list;
+    }, [products, sortBy]);
 
     function submitSearch(event: React.FormEvent) {
         event.preventDefault();
@@ -46,6 +59,24 @@ export default function SearchPage({ query = '', products = [] }: { query?: stri
                                 placeholder="Search for products..."
                                 className="w-full bg-transparent text-sm outline-none placeholder:text-[#9fb6a6]"
                             />
+                            {search && (
+                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
+                                    <X size={15} />
+                                </button>
+                            )}
+                            {/* Universal filter icon - mobile size only */}
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#1b4332] transition hover:bg-[#eaf4ed] hover:text-[#1f7a42] active:scale-95 sm:hidden"
+                                aria-label="Open filter options"
+                                title="Filter & sort products"
+                            >
+                                <SlidersHorizontal size={17} strokeWidth={2.2} />
+                                {sortBy !== 'default' && (
+                                    <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-[#1f7a42] ring-2 ring-white" />
+                                )}
+                            </button>
                         </form>
                     </div>
                 </header>
@@ -60,9 +91,9 @@ export default function SearchPage({ query = '', products = [] }: { query?: stri
                             <h1 className="font-display text-3xl font-bold text-[#163b24]">Search products</h1>
                         </div>
                     )}
-                    {products.length ? (
+                    {sortedProducts.length ? (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                            {products.map((product) => {
+                            {sortedProducts.map((product) => {
                                 const image = imageUrl(product.images?.[0]?.path);
                                 const price = product.sale_price ?? product.base_price;
                                 return (
@@ -105,27 +136,92 @@ export default function SearchPage({ query = '', products = [] }: { query?: stri
                     className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#def0e2] bg-white px-2 py-2.5 pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
                     aria-label="Bottom navigation"
                 >
-                    <Link href="/" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                    <Link href="/" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
                         <Home size={19} />
                         Home
                     </Link>
-                    <Link href="/customer/products" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                    <Link href="/customer/products" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
                         <Grid2X2 size={19} />
                         Products
                     </Link>
-                    <Link href="/customer/favorites" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                    <Link href="/customer/favorites" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
                         <Heart size={19} />
                         Favorites
                     </Link>
-                    <Link href="/customer/cart" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                    <Link href="/customer/cart" className="relative flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
                         <ShoppingCart size={19} />
                         Cart
+                        {cartCount > 0 && (
+                            <span className="absolute -top-0.5 left-1/2 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                {cartCount > 99 ? '99+' : cartCount}
+                            </span>
+                        )}
                     </Link>
-                    <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]">
+                    <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
                         <UserRound size={19} />
                         Profile
                     </Link>
                 </nav>
+
+                {/* ── Mobile Filter & Sort Modal ── */}
+                {filterOpen && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs sm:hidden"
+                        onClick={() => setFilterOpen(false)}
+                    >
+                        <div
+                            className="w-full max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-[#def0e2] bg-white p-5 shadow-2xl transition-all"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between border-b border-[#e5eee7] pb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8f5ec] text-[#1f7a42]">
+                                        <SlidersHorizontal size={16} strokeWidth={2.2} />
+                                    </span>
+                                    <h3 className="font-display text-base font-bold text-[#145437]">Sort Search Results</h3>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterOpen(false)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-[#5c6e63] hover:bg-[#f5fcf7]"
+                                    aria-label="Close filters"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 py-4 text-xs">
+                                <div>
+                                    <span className="block font-bold text-[#184c35] mb-2">Sort by</span>
+                                    <div className="space-y-2">
+                                        {[
+                                            { id: 'default', label: 'Default / Relevance' },
+                                            { id: 'price-asc', label: 'Price: Low to High' },
+                                            { id: 'price-desc', label: 'Price: High to Low' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSortBy(opt.id as any);
+                                                    setFilterOpen(false);
+                                                }}
+                                                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-xs font-semibold transition ${
+                                                    sortBy === opt.id
+                                                        ? 'border-[#1f7a42] bg-[#f0faf3] text-[#1f7a42]'
+                                                        : 'border-[#dfeae2] bg-[#fbfdfb] text-[#5c6e63] hover:bg-white'
+                                                }`}
+                                            >
+                                                <span>{opt.label}</span>
+                                                {sortBy === opt.id && <Check size={16} className="text-[#1f7a42]" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

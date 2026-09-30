@@ -11,6 +11,7 @@ use App\Services\ProductVariantService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -87,6 +88,8 @@ class SellerProductOptionVariantGenerationTest extends TestCase
                 'sale_price' => '90.00',
                 'stock_quantity' => '100',
                 'product_options' => "Color: Red, Blue\nSize: M, L",
+                'variant_stocks' => json_encode([10, 20, 30, 40]),
+                'variant_prices' => json_encode([100, 200, 300, 600]),
             ]);
 
         $response->assertRedirect(route('seller.products'));
@@ -98,6 +101,51 @@ class SellerProductOptionVariantGenerationTest extends TestCase
         $this->assertEquals(2, $product->options()->count());
         $this->assertEquals(4, $product->optionValues()->count());
         $this->assertEquals(4, $product->variants()->count());
+        $this->assertSame(
+            [10, 20, 30, 40],
+            $product->variants()->orderBy('id')->pluck('stock_quantity')->map(fn ($stock) => (int) $stock)->all(),
+        );
+        $this->assertSame(
+            [100.0, 200.0, 300.0, 600.0],
+            $product->variants()->orderBy('id')->pluck('price')->map(fn ($price) => (float) $price)->all(),
+        );
+
+        $this->actingAs($user->fresh(), 'web')
+            ->get('/seller/products')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('seller/products')
+                ->where('products.0.product_options', "Color: Red, Blue\nSize: M, L")
+                ->has('products.0.variants', 4)
+                ->where('products.0.variants.0.name', 'Red / M')
+                ->where('products.0.variants.0.stock_quantity', 10));
+    }
+
+    public function test_seller_cannot_create_product_when_variant_stock_does_not_match_total(): void
+    {
+        Role::findOrCreate('seller');
+
+        $user = User::factory()->create();
+        $user->assignRole('seller');
+
+        $category = Category::create([
+            'name' => 'Fashion',
+            'slug' => 'fashion-'.uniqid(),
+            'image' => null,
+        ]);
+
+        $response = $this->actingAs($user, 'web')
+            ->post('/seller/products', [
+                'category_id' => $category->id,
+                'name' => 'Unbalanced Stock Shirt',
+                'base_price' => '100.00',
+                'stock_quantity' => '20',
+                'product_options' => 'Size: S, M',
+                'variant_stocks' => json_encode([10, 9]),
+            ]);
+
+        $response->assertSessionHasErrors('variant_stocks');
+        $this->assertDatabaseMissing('products', ['name' => 'Unbalanced Stock Shirt']);
     }
 
     public function test_product_model_exposes_existing_variant_option_spec(): void

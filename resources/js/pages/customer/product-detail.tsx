@@ -1,3 +1,5 @@
+import MobileProductDetail from '@/components/mobile-product-detail';
+import ResponsiveProductDetail from '@/components/responsive-product-detail';
 import { addCartItem, api, getApiErrorMessage, prepareSanctum } from '@/lib/api';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -19,66 +21,35 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-function getInitialSelectedValues(productOptions: ProductOption[], productVariants: ProductVariant[] = []) {
-    const initial: Record<number, number> = {};
-
-    for (const option of productOptions) {
-        const firstAvailable = option.values.find((value) =>
-            productVariants.some(
-                (variant) =>
-                    variant.stock_quantity > 0 &&
-                    variant.is_active !== false &&
-                    (variant.optionValues ?? []).some(
-                        (assignment) => assignment.optionValue?.option?.id === option.id && assignment.product_option_value_id === value.id,
-                    ),
-            ),
-        );
-
-        if (firstAvailable) {
-            initial[option.id] = firstAvailable.id;
-        }
-    }
-
-    return initial;
-}
-
-function variantMatchesSelection(variant: ProductVariant, optionIds: ProductOption[], selectedValues: Record<number, number>) {
-    return optionIds.every((option) => {
-        const chosenValueId = selectedValues[option.id];
-        if (!chosenValueId) {
-            return true;
-        }
-
-        return (variant.optionValues ?? []).some(
-            (assignment) => assignment.optionValue?.option?.id === option.id && assignment.product_option_value_id === chosenValueId,
-        );
-    });
-}
-
-type ProductOptionValue = {
+export type ProductOptionValue = {
     id: number;
     value: string;
     sort_order?: number;
     option?: { id: number; name: string };
 };
 
-type ProductOption = {
+export type ProductOption = {
     id: number;
     name: string;
     sort_order?: number;
     values: ProductOptionValue[];
 };
 
-type ProductVariantOptionValue = {
+export type ProductVariantOptionValue = {
     product_option_value_id: number;
     optionValue?: {
         id: number;
         value: string;
         option?: { id: number; name: string };
     };
+    option_value?: {
+        id: number;
+        value: string;
+        option?: { id: number; name: string };
+    };
 };
 
-type ProductVariant = {
+export type ProductVariant = {
     id: number;
     product_id: number;
     name?: string;
@@ -88,9 +59,10 @@ type ProductVariant = {
     is_active?: boolean;
     image?: string;
     optionValues?: ProductVariantOptionValue[];
+    option_values?: ProductVariantOptionValue[];
 };
 
-type Product = {
+export type Product = {
     id: number;
     name: string;
     description?: string;
@@ -115,19 +87,14 @@ type Product = {
     country_of_origin?: string | null;
     category?: { name: string; slug: string };
     shop?: { name: string };
-    metrics?: { rating_average?: string | number | null; rating_count?: number | null };
+    metrics?: { rating_average?: string | number | null; rating_count?: number | null; quantity_sold?: number | null };
+    sku?: string | null;
     images?: { path: string; is_primary?: boolean }[];
     options?: ProductOption[];
     variants?: ProductVariant[];
 };
 
-type ProductDetailPageProps = {
-    product: Product;
-    similarProducts?: Product[];
-    availableVouchers?: VoucherOffer[];
-};
-
-type VoucherOffer = {
+export type VoucherOffer = {
     id: number;
     name: string;
     code: string;
@@ -137,6 +104,51 @@ type VoucherOffer = {
     expires_at: string | null;
     requires_claim: boolean;
     claimed_by_user: boolean;
+};
+
+function productVariantAssignments(variant: ProductVariant) {
+    return variant.optionValues ?? variant.option_values ?? [];
+}
+
+function getInitialSelectedValues(productOptions: ProductOption[], productVariants: ProductVariant[] = []) {
+    const initial: Record<number, number> = {};
+
+    for (const option of productOptions) {
+        const firstAvailable = option.values.find((value) =>
+            productVariants.some(
+                (variant) =>
+                    variant.stock_quantity > 0 &&
+                    variant.is_active !== false &&
+                    productVariantAssignments(variant).some((assignment) => assignment.product_option_value_id === value.id),
+            ),
+        );
+
+        if (firstAvailable) {
+            initial[option.id] = firstAvailable.id;
+        }
+    }
+
+    return initial;
+}
+
+function variantMatchesSelection(variant: ProductVariant, optionIds: ProductOption[], selectedValues: Record<number, number>) {
+    return optionIds.every((option) => {
+        const chosenValueId = selectedValues[option.id];
+        if (!chosenValueId) {
+            return true;
+        }
+
+        return (
+            option.values.some((value) => value.id === chosenValueId) &&
+            productVariantAssignments(variant).some((assignment) => assignment.product_option_value_id === chosenValueId)
+        );
+    });
+}
+
+type ProductDetailPageProps = {
+    product: Product;
+    similarProducts?: Product[];
+    availableVouchers?: VoucherOffer[];
 };
 
 function imageUrl(path?: string) {
@@ -160,7 +172,7 @@ export default function ProductDetail({ product, similarProducts = [], available
     const productOptions = product.options ?? [];
     const variantOptions = productOptions.filter((option) =>
         (product.variants ?? []).some((variant) =>
-            (variant.optionValues ?? []).some((assignment) => assignment.optionValue?.option?.id === option.id),
+            productVariantAssignments(variant).some((assignment) => option.values.some((value) => value.id === assignment.product_option_value_id)),
         ),
     );
     const productHasVariantChoices = variantOptions.length > 0;
@@ -175,7 +187,7 @@ export default function ProductDetail({ product, similarProducts = [], available
 
         return (
             product.variants?.find((variant) => {
-                const variantOptionValues = variant.optionValues ?? [];
+                const variantOptionValues = productVariantAssignments(variant);
                 if (variantOptionValues.length === 0) {
                     return false;
                 }
@@ -186,10 +198,10 @@ export default function ProductDetail({ product, similarProducts = [], available
                         return false;
                     }
 
-                    return variantOptionValues.some((assignment) => {
-                        const optionId = assignment.optionValue?.option?.id;
-                        return optionId === option.id && assignment.product_option_value_id === chosenValueId;
-                    });
+                    return (
+                        option.values.some((value) => value.id === chosenValueId) &&
+                        variantOptionValues.some((assignment) => assignment.product_option_value_id === chosenValueId)
+                    );
                 });
             }) ?? null
         );
@@ -291,6 +303,22 @@ export default function ProductDetail({ product, similarProducts = [], available
         }
     }
 
+    async function useVoucher(voucher: VoucherOffer) {
+        if (!auth.user) {
+            router.visit('/login');
+            return;
+        }
+
+        await addToCart();
+        try {
+            await prepareSanctum();
+            await api.post('/customer/cart/voucher', { code: voucher.code });
+            router.visit('/customer/cart');
+        } catch (error) {
+            setMessage(getApiErrorMessage(error, 'The voucher could not be applied to this cart.'));
+        }
+    }
+
     const originalPrice = product.sale_price ? Number(product.base_price) : null;
     const discountPercent = originalPrice && price ? Math.round(((originalPrice - price) / originalPrice) * 100) : null;
     const ratingAverage = Number(product.metrics?.rating_average ?? 0);
@@ -304,7 +332,7 @@ export default function ProductDetail({ product, similarProducts = [], available
     return (
         <>
             <Head title={product.name} />
-            <div className="min-h-screen bg-[#f2f3f0] px-4 py-5 pb-20 text-[#1b2f22] sm:px-6 lg:px-8 lg:pb-5">
+            <div className="hidden">
                 <div className="hidden lg:block">
                     <div className="mx-auto max-w-295">
                         <div className="relative mb-5 flex h-12 items-center">
@@ -846,10 +874,30 @@ export default function ProductDetail({ product, similarProducts = [], available
                     </div>
                 </div>
             </div>
-            <nav
-                className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6] px-2 py-2.5 lg:hidden"
-                aria-label="Mobile navigation"
-            >
+            <ResponsiveProductDetail
+                product={product}
+                similarProducts={similarProducts}
+                availableVouchers={availableVouchers}
+                selectedImage={selectedImage}
+                displayImage={displayImage}
+                currentImageIndex={currentImageIndex}
+                variantOptions={variantOptions}
+                selectedValues={selectedValues}
+                matchingVariant={matchingVariant}
+                price={price}
+                originalPrice={originalPrice}
+                discountPercent={discountPercent}
+                stock={stock}
+                chooseOption={chooseOption}
+                getAvailableValuesForOption={getAvailableValuesForOption}
+                onChangeImage={changeImage}
+                onSelectImage={setSelectedImage}
+                onClaimVoucher={claimVoucher}
+                onUseVoucher={useVoucher}
+                claimedVoucherIds={claimedVoucherIds}
+                claimingVoucherId={claimingVoucherId}
+            />
+            <nav className="hidden" aria-label="Tablet navigation">
                 <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#1b4332]">
                     <Home size={19} />
                     Home
@@ -883,6 +931,22 @@ export default function ProductDetail({ product, similarProducts = [], available
                     Profile
                 </Link>
             </nav>
+            <div className="block md:hidden">
+                <MobileProductDetail
+                    product={product}
+                    matchingVariant={matchingVariant}
+                    variantOptions={variantOptions}
+                    selectedValues={selectedValues}
+                    chooseOption={chooseOption}
+                    getAvailableValuesForOption={getAvailableValuesForOption}
+                    price={price}
+                    originalPrice={originalPrice}
+                    discountPercent={discountPercent}
+                    stock={stock}
+                    ratingAverage={ratingAverage}
+                    reviewCount={reviewCount}
+                />
+            </div>
         </>
     );
 }

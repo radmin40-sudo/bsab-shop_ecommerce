@@ -2,6 +2,7 @@ import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
+    Check,
     Dumbbell,
     Gift,
     Grid2X2,
@@ -13,6 +14,7 @@ import {
     Settings,
     Shirt,
     ShoppingCart,
+    SlidersHorizontal,
     Smartphone,
     Sofa,
     Sparkles,
@@ -74,7 +76,7 @@ export default function Welcome({
     products?: Product[];
     siteSettings?: Record<string, string | null>;
 }) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, cartCount = 0 } = usePage<SharedData & { cartCount?: number }>().props;
     const brandName = siteSettings.brand_name || 'BSABShop';
     const logoPath = siteSettings.logo_path ? imageUrl(siteSettings.logo_path) : null;
     const heroMediaPath = siteSettings.hero_media_path ? imageUrl(siteSettings.hero_media_path) : null;
@@ -100,6 +102,9 @@ export default function Welcome({
     const [search, setSearch] = useState('');
     const [liked, setLiked] = useState<number[]>(() => products.filter((product) => product.is_favorited).map((product) => product.id));
     const [accountOpen, setAccountOpen] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating'>('default');
+    const [inStockOnly, setInStockOnly] = useState(false);
     const searchableText = (product: Product) =>
         [product.name, product.description, product.category?.name, product.shop?.name].filter(Boolean).join(' ').toLowerCase();
     const visibleProducts = useMemo(
@@ -134,7 +139,22 @@ export default function Welcome({
             .slice(0, 4);
     }, [products, search, searchResults]);
 
-    const productFeed = search.trim() ? searchResults : products;
+    const sortedAndFilteredProducts = useMemo(() => {
+        let list = search.trim() ? searchResults : visibleProducts;
+        if (inStockOnly) {
+            list = list.filter((p) => p.stock_quantity > 0 && !p.is_out_of_stock);
+        }
+        if (sortBy === 'price-asc') {
+            list = [...list].sort((a, b) => parseFloat(a.sale_price || a.base_price) - parseFloat(b.sale_price || b.base_price));
+        } else if (sortBy === 'price-desc') {
+            list = [...list].sort((a, b) => parseFloat(b.sale_price || b.base_price) - parseFloat(a.sale_price || a.base_price));
+        } else if (sortBy === 'rating') {
+            list = [...list].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        }
+        return list;
+    }, [searchResults, visibleProducts, search, inStockOnly, sortBy]);
+
+    const productFeed = sortedAndFilteredProducts;
 
     function openProduct(product: Product) {
         router.visit(route('products.show', product.id));
@@ -199,7 +219,7 @@ export default function Welcome({
                         </nav>
                         <form
                             onSubmit={submitSearch}
-                            className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-4 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:my-0 lg:max-w-155"
+                            className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:my-0 lg:max-w-155"
                         >
                             <Search size={16} className="shrink-0 text-[#647568]" />
                             <input
@@ -209,21 +229,36 @@ export default function Welcome({
                                 className="w-full bg-transparent text-sm outline-none placeholder:text-[#5c6e63]"
                             />
                             {search && (
-                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search">
-                                    <X size={15} className="text-[#5c6e63]" />
+                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
+                                    <X size={15} />
                                 </button>
                             )}
+                            {/* Universal filter icon - mobile size only */}
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#1b4332] transition hover:bg-[#eaf4ed] hover:text-[#1f7a42] active:scale-95 sm:hidden"
+                                aria-label="Open filter options"
+                                title="Filter products"
+                            >
+                                <SlidersHorizontal size={17} strokeWidth={2.2} />
+                                {(sortBy !== 'default' || inStockOnly || activeCategory !== 'all') && (
+                                    <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-[#1f7a42] ring-2 ring-white" />
+                                )}
+                            </button>
                         </form>
                         <div className="order-1 ml-auto flex items-center justify-end gap-2 sm:order-2 sm:ml-5 lg:hidden">
                             <Link
                                 href={route('customer.cart')}
                                 className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
-                                aria-label="Open cart"
+                                aria-label={`Open cart, ${cartCount} items`}
                             >
                                 <ShoppingCart size={18} strokeWidth={2.2} />
-                                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
-                                    0
-                                </span>
+                                {cartCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                )}
                             </Link>
 
                             {auth.user ? (
@@ -286,10 +321,15 @@ export default function Welcome({
                                 <>
                                     <Link
                                         href={route('customer.cart')}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
-                                        aria-label="Open cart"
+                                        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                        aria-label={`Open cart, ${cartCount} items`}
                                     >
                                         <ShoppingCart size={17} />
+                                        {cartCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </span>
+                                        )}
                                     </Link>
                                     <div className="relative">
                                         <button
@@ -702,39 +742,179 @@ export default function Welcome({
                     className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6] px-2 py-2.5 lg:hidden"
                     aria-label="Mobile navigation"
                 >
-                    <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#1b4332]">
+                    <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-[#1f7a42]">
                         <Home size={19} />
                         Home
+                        <span className="h-0.5 w-5 rounded-full bg-[#1f7a42]" />
                     </Link>
                     <Link
                         href={auth.user ? route('customer.products') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
+                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
                     >
                         <Grid2X2 size={19} />
                         Products
                     </Link>
                     <Link
                         href={auth.user ? route('customer.favorites') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
+                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
                     >
                         <Heart size={19} />
                         Favorites
                     </Link>
                     <Link
                         href={auth.user ? route('customer.cart') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
+                        className="relative flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
                     >
                         <ShoppingCart size={19} />
                         Cart
+                        {auth.user && cartCount > 0 && (
+                            <span className="absolute -top-0.5 left-1/2 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
+                                {cartCount > 99 ? '99+' : cartCount}
+                            </span>
+                        )}
                     </Link>
                     <Link
                         href={auth.user ? route('customer.profile') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#5c6e63]"
+                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
                     >
                         <UserRound size={19} />
                         Profile
                     </Link>
                 </nav>
+
+                {/* ── Mobile Universal Filter Modal ── */}
+                {filterOpen && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs sm:hidden"
+                        onClick={() => setFilterOpen(false)}
+                    >
+                        <div
+                            className="w-full max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-[#def0e2] bg-white p-5 shadow-2xl transition-all"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between border-b border-[#e5eee7] pb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8f5ec] text-[#1f7a42]">
+                                        <SlidersHorizontal size={16} strokeWidth={2.2} />
+                                    </span>
+                                    <h3 className="font-display text-base font-bold text-[#145437]">Filter & Sort Products</h3>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterOpen(false)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-[#5c6e63] hover:bg-[#f5fcf7]"
+                                    aria-label="Close filters"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 py-4 text-xs">
+                                {/* Sort Section */}
+                                <div>
+                                    <span className="block font-bold text-[#184c35] mb-2">Sort by</span>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'default', label: 'Featured / Best' },
+                                            { id: 'price-asc', label: 'Price: Low to High' },
+                                            { id: 'price-desc', label: 'Price: High to Low' },
+                                            { id: 'rating', label: 'Highest Rated' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setSortBy(opt.id as any)}
+                                                className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                                                    sortBy === opt.id
+                                                        ? 'border-[#1f7a42] bg-[#f0faf3] text-[#1f7a42]'
+                                                        : 'border-[#dfeae2] bg-[#fbfdfb] text-[#5c6e63] hover:bg-white'
+                                                }`}
+                                            >
+                                                <span>{opt.label}</span>
+                                                {sortBy === opt.id && <Check size={14} className="text-[#1f7a42]" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Stock Availability */}
+                                <div>
+                                    <span className="block font-bold text-[#184c35] mb-2">Availability</span>
+                                    <label className="flex items-center justify-between rounded-xl border border-[#dfeae2] bg-[#fbfdfb] p-3 text-xs font-semibold text-[#184c35] cursor-pointer">
+                                        <span>In stock items only</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={inStockOnly}
+                                            onChange={(e) => setInStockOnly(e.target.checked)}
+                                            className="h-4 w-4 rounded accent-[#1f7a42]"
+                                        />
+                                    </label>
+                                </div>
+
+                                {/* Category Section */}
+                                <div>
+                                    <span className="block font-bold text-[#184c35] mb-2">Category</span>
+                                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveCategory('all')}
+                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                                activeCategory === 'all'
+                                                    ? 'bg-[#1f7a42] text-white'
+                                                    : 'border border-[#dfeae2] bg-[#fbfdfb] text-[#5c6e63]'
+                                            }`}
+                                        >
+                                            All Categories
+                                        </button>
+                                        {categories.map((c) => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => setActiveCategory(c.slug)}
+                                                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                                    activeCategory === c.slug
+                                                        ? 'bg-[#1f7a42] text-white'
+                                                        : 'border border-[#dfeae2] bg-[#fbfdfb] text-[#5c6e63]'
+                                                }`}
+                                            >
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pt-2 border-t border-[#e5eee7]">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSortBy('default');
+                                        setInStockOnly(false);
+                                        setActiveCategory('all');
+                                    }}
+                                    className="flex-1 rounded-xl border border-[#dfeae2] py-2.5 text-center text-xs font-bold text-[#5c6e63] transition hover:bg-[#f5fcf7]"
+                                >
+                                    Reset
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFilterOpen(false);
+                                        const el = document.getElementById('products');
+                                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    className="grow rounded-xl py-2.5 text-center text-xs font-bold text-white shadow-sm transition"
+                                    style={{ backgroundColor: '#22c55e' }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#16a34a')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#22c55e')}
+                                >
+                                    Apply Filters ({productFeed.length})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

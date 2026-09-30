@@ -36,8 +36,8 @@ class ProductAIController extends Controller
         } catch (\Throwable $exception) {
             Log::error('AI product analysis failed', [
                 'message' => $exception->getMessage(),
+                'exception_class' => $exception::class,
                 'user_id' => $request->user()?->id,
-                'trace' => $exception->getTraceAsString(),
             ]);
 
             return response()->json([

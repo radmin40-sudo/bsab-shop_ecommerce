@@ -31,7 +31,7 @@ const createCustomPinIcon = () =>
         className: 'custom-leaflet-marker',
         html: `
             <div style="position:relative; width:40px; height:48px; transform:translate(-20px, -48px);">
-                <div style="width:38px; height:38px; background:#078b48; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(7,139,72,0.45); border:3px solid #ffffff;">
+                <div style="width:38px; height:38px; background:#23834b; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(35,131,75,0.45); border:3px solid #ffffff;">
                     <div style="width:14px; height:14px; background:#ffffff; border-radius:50%; transform:rotate(45deg);"></div>
                 </div>
                 <div style="position:absolute; bottom:0; left:12px; width:16px; height:6px; background:rgba(0,0,0,0.25); border-radius:50%; filter:blur(2px);"></div>
@@ -268,18 +268,18 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-[#e5efe7] bg-[#f9fcf9] px-4 py-3 sm:px-6">
                     <div className="flex items-center gap-2.5">
-                        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#ddf7e4] text-[#087b3f]">
+                        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#e2f2e4] text-[#23834b]">
                             <MapPin size={18} />
                         </span>
                         <div>
-                            <h2 className="text-sm font-bold text-[#14482d] sm:text-[15px]">Pick Address on Map</h2>
-                            <p className="text-[10px] text-[#6b8c78] sm:text-[11px]">Click or drag the marker to your precise delivery location</p>
+                            <h2 className="text-sm font-bold text-[#145437] sm:text-[15px]">Pick Address on Map</h2>
+                            <p className="text-[10px] text-[#5c6e63] sm:text-[11px]">Click or drag the marker to your precise delivery location</p>
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid h-8 w-8 place-items-center rounded-full text-[#6b8c78] hover:bg-[#edf6f0] hover:text-[#14482d] transition"
+                        className="grid h-8 w-8 place-items-center rounded-full text-[#5c6e63] hover:bg-[#f5fcf7] hover:text-[#173b2a] transition"
                         aria-label="Close map picker"
                     >
                         <X size={17} />
@@ -287,16 +287,16 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                 </div>
 
                 {/* Search Bar & Quick Action */}
-                <div className="relative z-10 border-b border-[#e7f1e9] bg-white p-3 sm:px-6 sm:py-2.5">
+                <div className="relative z-10 border-b border-[#e5eee7] bg-white p-3 sm:px-6 sm:py-2.5">
                     <form onSubmit={handleSearch} className="flex gap-2">
                         <div className="relative flex-1">
-                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#799986]" />
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#647568]" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search city, barangay, street, or landmark in Philippines..."
-                                className="w-full rounded-full border border-[#d7e8dc] bg-[#f8fbf9] pl-9 pr-8 py-2 text-xs text-[#17462c] outline-none transition placeholder:text-[#88a594] focus:border-[#078b48] focus:bg-white focus:ring-2 focus:ring-[#d8f4e2]"
+                                className="w-full rounded-full border border-[#dfeae2] bg-[#fbfdfb] pl-9 pr-8 py-2 text-xs text-[#173b2a] outline-none transition placeholder:text-[#5c6e63] focus:border-[#2c9350] focus:bg-white focus:ring-4 focus:ring-[#e6f7eb]"
                             />
                             {searchQuery && (
                                 <button
@@ -305,7 +305,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                                         setSearchQuery('');
                                         setSearchResults([]);
                                     }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#799986] hover:text-[#17462c]"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5c6e63] hover:text-[#173b2a]"
                                 >
                                     <X size={13} />
                                 </button>
@@ -314,7 +314,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                         <button
                             type="submit"
                             disabled={isSearching}
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#078b48] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#056d39] disabled:opacity-60"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#23834b] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#186a3a] disabled:opacity-60 shadow-sm shadow-[#23834b]/20"
                         >
                             {isSearching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
                             <span className="hidden sm:inline">Search</span>
@@ -323,7 +323,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                             type="button"
                             onClick={locateUser}
                             title="Use my current GPS location"
-                            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#cbe4d3] bg-[#f2faf4] px-3 py-2 text-xs font-semibold text-[#087b3f] hover:bg-[#e4f6ea] transition"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#dfeae2] bg-[#f5fcf7] px-3 py-2 text-xs font-semibold text-[#1f7a42] hover:bg-[#eaf8ee] transition"
                         >
                             <Crosshair size={14} />
                             <span className="hidden md:inline">Locate Me</span>
@@ -332,7 +332,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
 
                     {/* Search Suggestions dropdown */}
                     {searchResults.length > 0 && (
-                        <div className="absolute left-4 right-4 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#d7e8dc] bg-white p-1 shadow-lg sm:left-6 sm:right-6">
+                        <div className="absolute left-4 right-4 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#dfeae2] bg-white p-1 shadow-lg sm:left-6 sm:right-6">
                             {searchResults.map((item, idx) => (
                                 <button
                                     key={idx}
@@ -344,9 +344,9 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                                         setSearchResults([]);
                                         setSearchQuery(item.display_name.split(',')[0]);
                                     }}
-                                    className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-xs text-[#24583b] hover:bg-[#f0fbf3] transition"
+                                    className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-xs text-[#173b2a] hover:bg-[#f5fcf7] transition"
                                 >
-                                    <MapPin size={13} className="mt-0.5 shrink-0 text-[#078b48]" />
+                                    <MapPin size={13} className="mt-0.5 shrink-0 text-[#2c9350]" />
                                     <span className="truncate">{item.display_name}</span>
                                 </button>
                             ))}
@@ -355,35 +355,35 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                 </div>
 
                 {/* Map Area */}
-                <div className="relative flex-1 bg-[#eaf4ed]">
+                <div className="relative flex-1 bg-[#f7fbf7]">
                     <div ref={mapContainerRef} className="h-full w-full" />
 
                     {/* Geocoding indicator pill */}
                     {isReverseGeocoding && (
-                        <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-[#078b48]/30 bg-white/95 px-3.5 py-1.5 shadow-md backdrop-blur-sm">
-                            <Loader2 size={13} className="animate-spin text-[#078b48]" />
-                            <span className="text-[11px] font-semibold text-[#078b48]">Locating address...</span>
+                        <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-[#2c9350]/30 bg-white/95 px-3.5 py-1.5 shadow-md backdrop-blur-sm">
+                            <Loader2 size={13} className="animate-spin text-[#2c9350]" />
+                            <span className="text-[11px] font-semibold text-[#2c9350]">Locating address...</span>
                         </div>
                     )}
 
                     {/* Hint badge */}
-                    <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden sm:flex items-center gap-1.5 rounded-lg border border-[#cbe4d3]/70 bg-white/90 px-2.5 py-1 shadow-sm backdrop-blur-sm text-[10px] text-[#4f735e]">
-                        <MapPin size={11} className="text-[#078b48]" />
+                    <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden sm:flex items-center gap-1.5 rounded-lg border border-[#dfeae2] bg-white/90 px-2.5 py-1 shadow-sm backdrop-blur-sm text-[10px] text-[#5c6e63]">
+                        <MapPin size={11} className="text-[#2c9350]" />
                         <span>Tip: Drag marker or click anywhere to adjust location</span>
                     </div>
                 </div>
 
                 {/* Footer / Selected Address Preview */}
-                <div className="border-t border-[#e5efe7] bg-[#f9fcf9] p-3 sm:p-4 md:px-6">
+                <div className="border-t border-[#e5eee7] bg-white p-3 sm:p-4 md:px-6">
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                         <div className="min-w-0">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#6b8c78]">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#5c6e63]">
                                 Selected Location
                             </span>
-                            <p className="mt-0.5 truncate text-xs font-bold text-[#14482d] sm:text-sm">
+                            <p className="mt-0.5 truncate text-xs font-bold text-[#145437] sm:text-sm">
                                 {selectedLocation.line1 || selectedLocation.city || 'No specific street detected'}
                             </p>
-                            <p className="truncate text-[11px] text-[#567a65]">
+                            <p className="truncate text-[11px] text-[#5d7768]">
                                 {[selectedLocation.city, selectedLocation.province, selectedLocation.postal_code]
                                     .filter(Boolean)
                                     .join(', ') || selectedLocation.formatted}
@@ -393,7 +393,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="rounded-full border border-[#d2e5d7] bg-white px-4 py-2 text-xs font-semibold text-[#5a7c68] hover:bg-[#f3f9f4] transition"
+                                className="rounded-full border border-[#dfeae2] bg-white px-4 py-2 text-xs font-semibold text-[#647568] hover:bg-[#f5fcf7] transition"
                             >
                                 Cancel
                             </button>
@@ -403,7 +403,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                                     onSelectLocation(selectedLocation);
                                     onClose();
                                 }}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-[#078b48] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#056d39] transition focus-visible:outline-2 focus-visible:outline-[#078b48]"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-[#23834b] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#23834b]/20 hover:bg-[#186a3a] transition focus-visible:outline-2 focus-visible:outline-[#23834b]"
                             >
                                 <Check size={14} strokeWidth={2.5} />
                                 <span>Confirm Address</span>

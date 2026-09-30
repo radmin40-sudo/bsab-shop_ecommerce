@@ -19,12 +19,20 @@ class SellerProductController extends Controller
     public function index(Request $request): Response
     {
         $shop = $this->shopFor($request);
+        $products = $shop->products()
+            ->with([
+                'category:id,name',
+                'images:id,product_id,path,is_primary',
+                'options.values',
+                'variants' => fn ($query) => $query->orderBy('id'),
+                'variants.optionValues.optionValue.option',
+            ])
+            ->latest()
+            ->get();
+        $products->each(fn (Product $product) => $product->append('product_options'));
 
         return Inertia::render('seller/products', [
-            'products' => $shop->products()
-                ->with(['category:id,name', 'images:id,product_id,path,is_primary', 'options.values'])
-                ->latest()
-                ->get(),
+            'products' => $products,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -42,7 +50,12 @@ class SellerProductController extends Controller
         $product = $shop->products()->create($data);
         $this->storeImages($request, $product, $images);
         $this->storeVideo($request, $product);
-        $service->syncFromOptionSpec($product, (string) $request->input('product_options', ''));
+        $service->syncFromOptionSpec(
+            $product,
+            (string) $request->input('product_options', ''),
+            $this->variantStocks($request),
+            $this->variantPrices($request),
+        );
 
         return to_route('seller.products');
     }
@@ -53,7 +66,12 @@ class SellerProductController extends Controller
         $product->update($this->validated($request, $product, $service));
         $this->storeImages($request, $product, $images);
         $this->storeVideo($request, $product);
-        $service->syncFromOptionSpec($product, (string) $request->input('product_options', ''));
+        $service->syncFromOptionSpec(
+            $product,
+            (string) $request->input('product_options', ''),
+            $this->variantStocks($request),
+            $this->variantPrices($request),
+        );
 
         return to_route('seller.products');
     }
@@ -123,11 +141,99 @@ class SellerProductController extends Controller
                     }
                 },
             ],
+            'variant_stocks' => [
+                'nullable',
+                'json',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request, $service): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    $stockValues = json_decode((string) $value, true);
+                    if (! is_array($stockValues) || ! array_is_list($stockValues) || $stockValues === []) {
+                        $fail('Enter stock for every product variant combination.');
+
+                        return;
+                    }
+
+                    $combinationCount = 1;
+                    foreach ($service->parseOptionGroups((string) $request->input('product_options', '')) as [, $values]) {
+                        $combinationCount *= count($values);
+                    }
+
+                    if (count($stockValues) !== $combinationCount) {
+                        $fail('Enter stock for every product variant combination.');
+
+                        return;
+                    }
+
+                    foreach ($stockValues as $stockValue) {
+                        if (filter_var($stockValue, FILTER_VALIDATE_INT) === false || (int) $stockValue < 0) {
+                            $fail('Variant stock quantities must be whole numbers of zero or more.');
+
+                            return;
+                        }
+                    }
+
+                    if (array_sum(array_map('intval', $stockValues)) !== (int) $request->input('stock_quantity')) {
+                        $fail('The total stock must equal the sum of variant combination stock.');
+                    }
+                },
+            ],
+            'variant_prices' => [
+                'nullable',
+                'json',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request, $service): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    $prices = json_decode((string) $value, true);
+                    if (! is_array($prices) || ! array_is_list($prices) || $prices === []) {
+                        $fail('Enter a price for every product variant combination.');
+
+                        return;
+                    }
+
+                    $combinationCount = 1;
+                    foreach ($service->parseOptionGroups((string) $request->input('product_options', '')) as [, $values]) {
+                        $combinationCount *= count($values);
+                    }
+
+                    if (count($prices) !== $combinationCount) {
+                        $fail('Enter a price for every product variant combination.');
+
+                        return;
+                    }
+
+                    foreach ($prices as $price) {
+                        if (! is_numeric($price) || (float) $price < 0) {
+                            $fail('Variant prices must be zero or more.');
+
+                            return;
+                        }
+                    }
+                },
+            ],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'images' => ['nullable', 'array'],
             'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
             'product_video' => ['nullable', 'file', 'mimes:mp4,mov,webm,avi,m4v,3gp', 'max:10240'],
         ]);
+    }
+
+    private function variantStocks(Request $request): array
+    {
+        $stockValues = json_decode((string) $request->input('variant_stocks', '[]'), true);
+
+        return is_array($stockValues) ? array_values($stockValues) : [];
+    }
+
+    private function variantPrices(Request $request): array
+    {
+        $prices = json_decode((string) $request->input('variant_prices', '[]'), true);
+
+        return is_array($prices) ? array_values($prices) : [];
     }
 
     private function uniqueSku(string $productName): string

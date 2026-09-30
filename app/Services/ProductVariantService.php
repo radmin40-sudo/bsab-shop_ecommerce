@@ -72,11 +72,11 @@ class ProductVariantService
         return array_values(array_unique($values));
     }
 
-    public function syncFromOptionSpec(Product $product, string $raw): void
+    public function syncFromOptionSpec(Product $product, string $raw, array $variantStocks = [], array $variantPrices = []): void
     {
         $groups = $this->parseOptionGroups($raw);
 
-        DB::transaction(function () use ($product, $groups) {
+        DB::transaction(function () use ($product, $groups, $variantStocks, $variantPrices) {
             foreach ($product->options as $option) {
                 foreach ($option->values as $value) {
                     $value->delete();
@@ -125,14 +125,19 @@ class ProductVariantService
             }
 
             foreach ($combos as $index => $combo) {
-                $variantValues = ProductOptionValue::query()->whereIn('id', $combo)->get();
-                $variantName = $variantValues->map(fn (ProductOptionValue $value) => $value->value)->implode(' / ');
+                $variantValuesById = ProductOptionValue::query()->whereIn('id', $combo)->get()->keyBy('id');
+                $variantValues = collect($combo)->map(fn (int $id) => $variantValuesById->get($id));
+                $variantName = $variantValues->pluck('value')->implode(' / ');
                 $baseSku = strtoupper(Str::slug($product->sku.'-'.$variantName.'-'.($index + 1)));
                 $variant = $product->variants()->create([
                     'name' => $variantName ?: $product->name.' Variant '.($index + 1),
                     'sku' => $this->uniqueVariantSku($baseSku),
-                    'price' => $product->sale_price ?? $product->base_price,
-                    'stock_quantity' => (int) $product->stock_quantity,
+                    'price' => array_key_exists($index, $variantPrices)
+                        ? (float) $variantPrices[$index]
+                        : ($product->sale_price ?? $product->base_price),
+                    'stock_quantity' => array_key_exists($index, $variantStocks)
+                        ? (int) $variantStocks[$index]
+                        : (int) $product->stock_quantity,
                     'image' => null,
                     'is_active' => true,
                 ]);

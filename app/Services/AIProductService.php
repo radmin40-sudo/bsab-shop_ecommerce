@@ -130,7 +130,7 @@ class AIProductService
         }
 
         if ($status === 403) {
-            return 'Gemini API access is forbidden for this request.';
+            return 'Gemini access is forbidden. Check that the API key is valid, the Generative Language API is enabled for its Google project, and the key allows Gemini requests.';
         }
 
         if ($status === 400) {
