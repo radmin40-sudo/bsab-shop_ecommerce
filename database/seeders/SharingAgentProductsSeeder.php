@@ -99,7 +99,7 @@ class SharingAgentProductsSeeder extends Seeder
                     ['slug' => $slug],
                     [
                         'shop_id' => $shop->id,
-                        'seller_id' => $seller->id,
+                        'seller_id' => $shop->id,
                         'category_id' => $categoryId,
                         'name' => $productName,
                         'slug' => $slug,
