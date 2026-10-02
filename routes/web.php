@@ -25,6 +25,7 @@ use App\Models\Wishlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 $extractGeminiDiagnosticError = function (mixed $payload, int $status): string {
@@ -224,31 +225,40 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
 Route::get('/products/{product}', function (Request $request, Product $product, VoucherService $vouchers) {
     abort_unless($product->status !== 'rejected', 404);
 
+    $withMetrics = Schema::hasTable('product_metrics');
+    $similarProductRelations = [
+        'shop:id,name',
+        'category:id,name,slug',
+        'images' => fn ($imageQuery) => $imageQuery->where('is_primary', true)->limit(1),
+    ];
+    if ($withMetrics) {
+        $similarProductRelations[] = 'metrics';
+    }
+
     $similarProducts = Product::published()
         ->where('id', '!=', $product->id)
         ->where(function ($query) use ($product) {
             $query->where('category_id', $product->category_id)
                 ->orWhere('shop_id', $product->shop_id);
         })
-        ->with([
-            'shop:id,name',
-            'category:id,name,slug',
-            'metrics',
-            'images' => fn ($imageQuery) => $imageQuery->where('is_primary', true)->limit(1),
-        ])
+        ->with($similarProductRelations)
         ->latest()
         ->limit(4)
         ->get();
 
+    $productRelations = [
+        'shop:id,name',
+        'category:id,name,slug',
+        'images',
+        'options.values',
+        'variants.optionValues.optionValue.option',
+    ];
+    if ($withMetrics) {
+        $productRelations[] = 'metrics';
+    }
+
     return Inertia::render('customer/product-detail', [
-        'product' => $product->load([
-            'shop:id,name',
-            'category:id,name,slug',
-            'metrics',
-            'images',
-            'options.values',
-            'variants.optionValues.optionValue.option',
-        ]),
+        'product' => $product->load($productRelations),
         'similarProducts' => $similarProducts,
         'availableVouchers' => $vouchers->availableForProduct($product, $request->user()),
     ]);
