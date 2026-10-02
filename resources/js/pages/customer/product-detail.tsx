@@ -149,6 +149,7 @@ type ProductDetailPageProps = {
     product: Product;
     similarProducts?: Product[];
     availableVouchers?: VoucherOffer[];
+    voucherAvailabilityError?: string | null;
 };
 
 function imageUrl(path?: string) {
@@ -160,7 +161,7 @@ function formatPrice(value: number | string) {
     return `₱${cleanValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function ProductDetail({ product, similarProducts = [], availableVouchers = [] }: ProductDetailPageProps) {
+export default function ProductDetail({ product, similarProducts = [], availableVouchers = [], voucherAvailabilityError }: ProductDetailPageProps) {
     const { auth } = usePage<SharedData>().props;
     const [selectedImage, setSelectedImage] = useState(product.images?.[0]?.path ?? null);
     const [busy, setBusy] = useState(false);
@@ -878,6 +879,7 @@ export default function ProductDetail({ product, similarProducts = [], available
                 product={product}
                 similarProducts={similarProducts}
                 availableVouchers={availableVouchers}
+                voucherAvailabilityError={voucherAvailabilityError}
                 selectedImage={selectedImage}
                 displayImage={displayImage}
                 currentImageIndex={currentImageIndex}

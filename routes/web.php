@@ -23,7 +23,9 @@ use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Models\Wishlist;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
@@ -257,10 +259,23 @@ Route::get('/products/{product}', function (Request $request, Product $product, 
         $productRelations[] = 'metrics';
     }
 
+    $availableVouchers = collect();
+    $voucherAvailabilityError = null;
+    try {
+        $availableVouchers = $vouchers->availableForProduct($product, $request->user());
+    } catch (QueryException $exception) {
+        Log::warning('Product detail voucher availability query failed.', [
+            'product_id' => $product->id,
+            'exception' => $exception,
+        ]);
+        $voucherAvailabilityError = 'Voucher offers are temporarily unavailable. You can still view and purchase this product.';
+    }
+
     return Inertia::render('customer/product-detail', [
         'product' => $product->load($productRelations),
         'similarProducts' => $similarProducts,
-        'availableVouchers' => $vouchers->availableForProduct($product, $request->user()),
+        'availableVouchers' => $availableVouchers,
+        'voucherAvailabilityError' => $voucherAvailabilityError,
     ]);
 })->name('products.show');
 

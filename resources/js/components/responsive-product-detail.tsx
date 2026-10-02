@@ -1,4 +1,4 @@
-import { addCartItem, api, getApiErrorMessage, prepareSanctum } from '@/lib/api';
+import { addCartItem, getApiErrorMessage } from '@/lib/api';
 import type { Product, ProductOption, ProductOptionValue, ProductVariant, VoucherOffer } from '@/pages/customer/product-detail';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
@@ -33,6 +33,7 @@ type ResponsiveProductDetailProps = {
     product: Product;
     similarProducts: Product[];
     availableVouchers: VoucherOffer[];
+    voucherAvailabilityError?: string | null;
     selectedImage: string | null;
     displayImage: string | null;
     currentImageIndex: number;
@@ -85,6 +86,7 @@ export default function ResponsiveProductDetail({
     product,
     similarProducts,
     availableVouchers,
+    voucherAvailabilityError,
     selectedImage,
     displayImage,
     currentImageIndex,
@@ -174,24 +176,6 @@ export default function ResponsiveProductDetail({
             setMessage(`Added ${quantity} item${quantity === 1 ? '' : 's'} to your cart.`);
         } catch (error) {
             setMessage(getApiErrorMessage(error));
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const useVoucher = async (voucher: VoucherOffer) => {
-        if (!auth.user) {
-            router.visit(route('login'));
-            return;
-        }
-        setBusy(true);
-        setMessage('');
-        try {
-            await prepareSanctum();
-            await api.post('/customer/cart/voucher', { code: voucher.code });
-            router.visit(route('customer.cart'));
-        } catch (error) {
-            setMessage(getApiErrorMessage(error, 'The voucher could not be applied to your cart.'));
         } finally {
             setBusy(false);
         }
@@ -703,7 +687,7 @@ export default function ResponsiveProductDetail({
                                                 ) : (
                                                     <button
                                                         type="button"
-                                                        onClick={() => void useVoucher(voucher)}
+                                                        onClick={() => onUseVoucher(voucher)}
                                                         className="rounded-lg border border-[#c6dfcb] px-2.5 py-1.5 text-[10px] font-bold text-[#168247]"
                                                     >
                                                         Use now
@@ -713,6 +697,11 @@ export default function ResponsiveProductDetail({
                                         );
                                     })}
                                 </div>
+                            )}
+                            {voucherAvailabilityError && (
+                                <p role="status" className="mt-3 rounded-lg border border-[#f1dfb5] bg-[#fffaf0] px-3 py-2 text-[10px] leading-4 text-[#805d24]">
+                                    {voucherAvailabilityError}
+                                </p>
                             )}
                         </div>
                     </div>

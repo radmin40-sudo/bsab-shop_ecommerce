@@ -40,6 +40,20 @@ class ProductDetailPageTest extends TestCase
                 ->missing('product.metrics'));
     }
 
+    public function test_product_detail_page_remains_available_when_voucher_lookup_fails(): void
+    {
+        $product = $this->makeProduct();
+        Schema::drop('voucher_claims');
+
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('customer/product-detail')
+                ->where('product.id', $product->id)
+                ->where('voucherAvailabilityError', 'Voucher offers are temporarily unavailable. You can still view and purchase this product.')
+                ->has('availableVouchers', 0));
+    }
+
     private function makeProduct(): Product
     {
         $seller = User::factory()->create();
