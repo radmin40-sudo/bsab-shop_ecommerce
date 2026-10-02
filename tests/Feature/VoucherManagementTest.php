@@ -8,6 +8,7 @@ use App\Models\Shop;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -99,6 +100,21 @@ class VoucherManagementTest extends TestCase
             ->assertJsonValidationErrors('voucher');
 
         $this->assertDatabaseCount('voucher_claims', 1);
+    }
+
+    public function test_proxy_requests_are_treated_as_secure_for_https_requests(): void
+    {
+        Route::middleware('web')->get('/proxy-secure-check', function () {
+            return response()->json(['secure' => request()->isSecure()]);
+        });
+
+        $this->withServerVariables([
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '443',
+            'HTTPS' => 'on',
+        ])->get('/proxy-secure-check')
+            ->assertOk()
+            ->assertJsonPath('secure', true);
     }
 
     public function test_seller_can_create_voucher_only_for_products_in_their_shop(): void
