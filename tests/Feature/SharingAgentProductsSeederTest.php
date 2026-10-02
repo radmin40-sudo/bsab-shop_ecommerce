@@ -30,5 +30,20 @@ class SharingAgentProductsSeederTest extends TestCase
             'seller_id' => $shop->id,
         ]);
         $this->assertSame(20, $shop->products()->count());
+
+        $shop->products()->with(['images', 'variants.optionValues'])->get()->each(function ($product): void {
+            $this->assertCount(5, $product->images);
+            $this->assertSame(1, $product->images->where('is_primary', true)->count());
+            $this->assertCount(3, $product->variants);
+            $this->assertCount(3, $product->variants->pluck('name')->unique());
+            $this->assertTrue($product->variants->every(fn ($variant) => $variant->optionValues->isNotEmpty()));
+        });
+
+        $this->seed(SharingAgentProductsSeeder::class);
+
+        $shop->products()->get()->each(function ($product): void {
+            $this->assertSame(5, $product->images()->count());
+            $this->assertSame(3, $product->variants()->count());
+        });
     }
 }

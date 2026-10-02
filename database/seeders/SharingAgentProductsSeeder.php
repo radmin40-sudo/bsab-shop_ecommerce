@@ -88,6 +88,19 @@ class SharingAgentProductsSeeder extends Seeder
             'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=900&q=80',
         ];
 
+        $variantOptions = [
+            'Electronics' => ['Color', ['Matte Black', 'Silver', 'Midnight Blue']],
+            'Fashion' => ['Size', ['Small', 'Medium', 'Large']],
+            'Home' => ['Finish', ['Natural Oak', 'Classic White', 'Walnut']],
+            'Health' => ['Pack Size', ['30 Count', '60 Count', '90 Count']],
+            'Beauty' => ['Shade', ['Light', 'Medium', 'Deep']],
+            'Sports' => ['Size', ['Small', 'Medium', 'Large']],
+            'Books' => ['Edition', ['Paperback', 'Hardcover', 'Collector Edition']],
+            'Groceries' => ['Pack Size', ['250 g', '500 g', '1 kg']],
+            'Office' => ['Format', ['A4', 'A5', 'Letter']],
+            'Toys' => ['Color', ['Red', 'Blue', 'Yellow']],
+        ];
+
         $index = 0;
 
         foreach ($categoryIds as $categoryIndex => $categoryId) {
@@ -120,14 +133,43 @@ class SharingAgentProductsSeeder extends Seeder
                     ],
                 );
 
-                ProductImage::updateOrCreate(
-                    ['product_id' => $product->id],
-                    [
-                        'path' => $images[$index % count($images)],
-                        'is_primary' => true,
-                        'sort_order' => 1,
-                    ],
+                for ($imageIndex = 0; $imageIndex < 5; $imageIndex++) {
+                    ProductImage::updateOrCreate(
+                        ['product_id' => $product->id, 'sort_order' => $imageIndex + 1],
+                        [
+                            'path' => $images[($index * 5 + $imageIndex) % count($images)],
+                            'is_primary' => $imageIndex === 0,
+                        ],
+                    );
+                }
+
+                $product->images()->whereNotIn('sort_order', range(1, 5))->delete();
+
+                [$optionName, $variantNames] = $variantOptions[$categories[$categoryIndex]];
+                $option = $product->options()->updateOrCreate(
+                    ['name' => $optionName],
+                    ['sort_order' => 1],
                 );
+
+                foreach ($variantNames as $variantIndex => $variantName) {
+                    $optionValue = $option->values()->updateOrCreate(
+                        ['value' => $variantName],
+                        ['sort_order' => $variantIndex + 1],
+                    );
+                    $variant = $product->variants()->updateOrCreate(
+                        ['sku' => $product->sku.'-V'.($variantIndex + 1)],
+                        [
+                            'name' => $variantName,
+                            'price' => (float) ($product->sale_price ?? $product->base_price) + ($variantIndex * 25),
+                            'stock_quantity' => 10 + ($variantIndex * 5),
+                            'is_active' => true,
+                        ],
+                    );
+                    $variant->optionValues()->updateOrCreate(
+                        ['product_option_value_id' => $optionValue->id],
+                        [],
+                    );
+                }
 
                 $index++;
             }
