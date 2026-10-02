@@ -61,7 +61,7 @@ export async function checkoutCart(payload: {
     shipping_method?: 'standard' | 'express';
     selected_item_ids?: number[];
     gcash_receipt?: File | null;
-}) {
+}): Promise<{ id: number; order_number: string }> {
     await prepareSanctum();
 
     if (payload.gcash_receipt) {

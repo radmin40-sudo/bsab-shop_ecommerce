@@ -1,7 +1,7 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { api, checkoutCart, currentUser, prepareSanctum } from '@/lib/api';
 import { optimizeImage } from '@/lib/image-upload';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Check, Minus, PackageCheck, Plus, ShieldCheck, ShoppingBag, Trash2, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -31,6 +31,7 @@ type CartData = {
     voucher_quote?: { code: string; discount: number; eligible_subtotal: number; free_shipping: boolean } | null;
 };
 type CheckoutProps = { selectedItemIds?: number[] };
+type CheckoutOrder = { id: number; order_number: string };
 
 const emptyAddress: AddressForm = { full_name: '', phone: '', line1: '', city: '', province: '', postal_code: '' };
 const stepLabels = ['Cart', 'Shipping', 'Payment', 'Review'];
@@ -229,6 +230,7 @@ export default function CustomerCheckout() {
     const [qrPreview, setQrPreview] = useState<{ shopName: string; url: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const [addressReady, setAddressReady] = useState(false);
+    const [placedOrder, setPlacedOrder] = useState<CheckoutOrder | null>(null);
 
     const selectedItems = useMemo(() => items.filter((item) => selectedItemIds.includes(item.id)), [items, selectedItemIds]);
     const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
@@ -284,13 +286,14 @@ export default function CustomerCheckout() {
         setNotice('');
 
         try {
-            await checkoutCart({
+            const order = await checkoutCart({
                 shipping_address: address,
                 payment_method: paymentMethod === 'gcash' ? 'gcash' : 'cash_on_delivery',
                 shipping_method: shippingMethod,
                 selected_item_ids: selectedItemIds,
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
+            setPlacedOrder(order);
             setStep('success');
         } catch (error: any) {
             setNotice(error?.response?.data?.message || 'Checkout could not be completed.');
@@ -366,7 +369,9 @@ export default function CustomerCheckout() {
                         </div>
                         <h2 className="font-display mt-6 text-3xl font-bold text-[#163b24]">Order Placed!</h2>
                         <p className="mt-2 text-sm text-[#647568]">Thank you for your purchase.</p>
-                        <p className="mt-4 text-sm text-[#647568]">Your order #ORD123456 has been received and is being processed.</p>
+                        <p className="mt-4 text-sm text-[#647568]">
+                            Your order #{placedOrder?.order_number} has been received and is being processed.
+                        </p>
                         <div className="mt-6 rounded-2xl border border-[#dfeee5] bg-[#f7faf7] p-4 text-left">
                             <div className="flex items-center justify-between text-sm">
                                 <span className="font-semibold text-[#163b24]">Delivery Method</span>
@@ -382,19 +387,18 @@ export default function CustomerCheckout() {
                             </div>
                         </div>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                            <button
-                                type="button"
+                            <Link
+                                href={placedOrder ? `/customer/orders/${placedOrder.id}` : '/customer/orders'}
                                 className="flex-1 rounded-2xl bg-[#1f7a42] px-5 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(31,122,66,0.18)] hover:bg-[#163b24]"
                             >
                                 View Order Details
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => router.visit('/customer/products')}
+                            </Link>
+                            <Link
+                                href="/customer/products"
                                 className="flex-1 rounded-2xl border border-[#dfeee5] bg-white px-5 py-3 text-sm font-bold text-[#163b24] hover:bg-[#f7faf7]"
                             >
                                 Continue Shopping
-                            </button>
+                            </Link>
                         </div>
                     </div>
                 </div>

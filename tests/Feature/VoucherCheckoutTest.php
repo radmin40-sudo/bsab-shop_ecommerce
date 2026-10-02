@@ -59,7 +59,7 @@ class VoucherCheckoutTest extends TestCase
             'payment_method' => 'cash_on_delivery',
         ]);
 
-        $response->assertCreated();
+        $response->assertCreated()->assertJsonStructure(['id', 'order_number']);
         $order = Order::query()->where('user_id', $customer->id)->firstOrFail();
         $this->assertSame('2598.00', $order->subtotal);
         $this->assertSame('100.00', $order->discount);
