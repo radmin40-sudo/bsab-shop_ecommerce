@@ -19,7 +19,7 @@ import {
     Truck,
     UserRound,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export type ProductOptionValue = {
     id: number;
@@ -88,6 +88,7 @@ export type Product = {
     category?: { name: string; slug: string };
     shop?: { name: string };
     metrics?: { rating_average?: string | number | null; rating_count?: number | null; quantity_sold?: number | null };
+    is_favorited?: boolean;
     sku?: string | null;
     images?: { path: string; is_primary?: boolean }[];
     options?: ProductOption[];
@@ -163,6 +164,7 @@ function formatPrice(value: number | string) {
 
 export default function ProductDetail({ product, similarProducts = [], availableVouchers = [], voucherAvailabilityError }: ProductDetailPageProps) {
     const { auth } = usePage<SharedData>().props;
+    const [isFavorited, setIsFavorited] = useState(Boolean(product.is_favorited));
     const [selectedImage, setSelectedImage] = useState(product.images?.[0]?.path ?? null);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
@@ -180,6 +182,25 @@ export default function ProductDetail({ product, similarProducts = [], available
     const [selectedValues, setSelectedValues] = useState<Record<number, number>>(() =>
         getInitialSelectedValues(variantOptions, product.variants ?? []),
     );
+
+    useEffect(() => {
+        setIsFavorited(Boolean(product.is_favorited));
+    }, [product.id, product.is_favorited]);
+
+    function toggleFavorite() {
+        if (!auth.user) {
+            router.visit(route('login'));
+            return;
+        }
+
+        const previousFavorite = isFavorited;
+        setIsFavorited(!previousFavorite);
+        router.post(route('customer.favorites.toggle', product.id), {}, {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => setIsFavorited(previousFavorite),
+        });
+    }
 
     const matchingVariant = useMemo(() => {
         if (!productHasVariantChoices) {
@@ -898,6 +919,8 @@ export default function ProductDetail({ product, similarProducts = [], available
                 onUseVoucher={useVoucher}
                 claimedVoucherIds={claimedVoucherIds}
                 claimingVoucherId={claimingVoucherId}
+                isFavorited={isFavorited}
+                onToggleFavorite={toggleFavorite}
             />
             <nav className="hidden" aria-label="Tablet navigation">
                 <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#1b4332]">
@@ -947,6 +970,8 @@ export default function ProductDetail({ product, similarProducts = [], available
                     stock={stock}
                     ratingAverage={ratingAverage}
                     reviewCount={reviewCount}
+                    isFavorited={isFavorited}
+                    onToggleFavorite={toggleFavorite}
                 />
             </div>
         </>

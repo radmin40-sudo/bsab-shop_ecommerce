@@ -111,7 +111,10 @@ Route::get('/', function (Request $request) use ($storefrontProps) {
         return to_route('seller.dashboard');
     }
 
-    return Inertia::render('welcome', $storefrontProps($request->user()?->id));
+    return Inertia::render('welcome', [
+        ...$storefrontProps($request->user()?->id),
+        'query' => trim((string) $request->query('q', '')),
+    ]);
 })->name('home');
 
 Route::get('/marketplace', fn () => Inertia::render('customer/marketplace', $storefrontProps()))->name('marketplace');
@@ -271,36 +274,21 @@ Route::get('/products/{product}', function (Request $request, Product $product, 
         $voucherAvailabilityError = 'Voucher offers are temporarily unavailable. You can still view and purchase this product.';
     }
 
+    $product->load($productRelations);
+    $product->setAttribute(
+        'is_favorited',
+        $request->user()
+            ? $product->wishlists()->where('user_id', $request->user()->id)->exists()
+            : false,
+    );
+
     return Inertia::render('customer/product-detail', [
-        'product' => $product->load($productRelations),
+        'product' => $product,
         'similarProducts' => $similarProducts,
         'availableVouchers' => $availableVouchers,
         'voucherAvailabilityError' => $voucherAvailabilityError,
     ]);
 })->name('products.show');
-
-Route::get('/search', function (Request $request) {
-    $query = trim((string) $request->query('q', ''));
-    $terms = preg_split('/\s+/', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-    return Inertia::render('customer/search', [
-        'query' => $query,
-        'products' => empty($terms) ? collect() : Product::published()
-            ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($imageQuery) => $imageQuery->where('is_primary', true)->limit(1)])
-            ->where(function ($productQuery) use ($terms) {
-                foreach ($terms as $term) {
-                    $productQuery->where(function ($termQuery) use ($term) {
-                        $termQuery->where('name', 'like', '%'.$term.'%')
-                            ->orWhere('description', 'like', '%'.$term.'%')
-                            ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'like', '%'.$term.'%'))
-                            ->orWhereHas('shop', fn ($shopQuery) => $shopQuery->where('name', 'like', '%'.$term.'%'));
-                    });
-                }
-            })
-            ->latest()
-            ->get(),
-    ]);
-})->name('search');
 
 Route::get('/dashboard', function (Request $request) {
     if ($request->user()->hasRole('admin')) {
@@ -419,6 +407,7 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
         return Inertia::render('customer/products', [
             'products'   => $products,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name', 'slug']),
+            'query' => trim((string) $request->query('q', '')),
         ]);
     })->name('customer.products');
     Route::redirect('/categories', '/customer/products')->name('customer.categories');
@@ -441,9 +430,20 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
                 ->get(),
         ]);
     })->name('customer.categories.show');
-    Route::get('/favorites', fn () => Inertia::render('customer/favorites', [
-        'products' => Product::query()->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])->latest()->get(),
-    ]))->name('customer.favorites');
+    Route::get('/favorites', function (Request $request) {
+        return Inertia::render('customer/favorites', [
+            'products' => Product::query()
+                ->whereHas('wishlists', fn ($query) => $query->where('user_id', $request->user()->id))
+                ->with(['shop:id,name', 'category:id,name,slug', 'images' => fn ($query) => $query->where('is_primary', true)->limit(1)])
+                ->latest()
+                ->get(),
+        ]);
+    })->name('customer.favorites');
+    Route::delete('/favorites', function (Request $request) {
+        Wishlist::query()->where('user_id', $request->user()->id)->delete();
+
+        return back();
+    })->name('customer.favorites.clear');
     Route::post('/favorites/{product}/toggle', function (Request $request, Product $product) {
         $wishlist = Wishlist::query()->where('user_id', $request->user()->id)->where('product_id', $product->id)->first();
 

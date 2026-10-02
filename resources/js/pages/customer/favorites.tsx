@@ -1,7 +1,7 @@
 import { PortalLayout } from '@/components/portal-layout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Heart, ShoppingCart, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 type Product = {
     id: number;
@@ -30,33 +30,19 @@ function formatPrice(price: number | string) {
     return '₱' + Number(price).toLocaleString('en-PH', { maximumFractionDigits: 0 });
 }
 
-function readFavorites(): number[] {
-    if (typeof window === 'undefined') return [];
-    try {
-        return JSON.parse(window.localStorage.getItem('sprig-favorites') || '[]') as number[];
-    } catch {
-        return [];
-    }
-}
-
 type Toast = { id: number; message: string; undoFn?: () => void };
 let _toastId = 0;
 
 export default function CustomerFavorites({ products = [] }: { products?: Product[] }) {
-    const [favoriteIds, setFavoriteIds] = useState<number[]>(readFavorites);
+    const [favoriteIds, setFavoriteIds] = useState<number[]>(() => products.map((product) => product.id));
     const [removing, setRemoving] = useState<Set<number>>(new Set());
     const [toast, setToast] = useState<Toast | null>(null);
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Try to read cart count from Inertia shared props
-    const { props } = usePage<{ cartCount?: number }>();
-    const cartCount = (props as any).cartCount ?? 0;
+    const { cartCount = 0 } = usePage<{ cartCount?: number }>().props;
 
     const favorites = useMemo(() => products.filter((p) => favoriteIds.includes(p.id)), [favoriteIds, products]);
-
-    useEffect(() => {
-        window.localStorage.setItem('sprig-favorites', JSON.stringify(favoriteIds));
-    }, [favoriteIds]);
 
     function showToast(message: string, undoFn?: () => void) {
         if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -80,20 +66,34 @@ export default function CustomerFavorites({ products = [] }: { products?: Produc
                 n.delete(productId);
                 return n;
             });
+            router.post(route('customer.favorites.toggle', productId), {}, {
+                preserveScroll: true,
+                onError: () => {
+                    setFavoriteIds((cur) => [...cur, productId]);
+                    showToast('Could not remove this favorite. Please try again.');
+                },
+            });
             showToast('Removed from favorites', () => {
                 setFavoriteIds((cur) => {
                     const next = cur.filter((id) => id !== productId);
                     next.splice(removedIndex, 0, productId);
                     return next;
                 });
+                router.post(route('customer.favorites.toggle', productId), {}, { preserveScroll: true });
                 dismissToast();
             });
         }, 200);
     }
 
     function clearAll() {
-        setFavoriteIds([]);
-        showToast('All favorites cleared');
+        router.delete(route('customer.favorites.clear'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setFavoriteIds([]);
+                showToast('All favorites cleared');
+            },
+            onError: () => showToast('Could not clear favorites. Please try again.'),
+        });
     }
 
     return (

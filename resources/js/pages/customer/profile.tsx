@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import CustomerBottomNav from '@/components/customer-bottom-nav';
 import MapPickerModal from '@/components/map-picker-modal';
 import { optimizeImage } from '@/lib/image-upload';
 import { type SharedData } from '@/types';
@@ -175,7 +176,7 @@ export default function CustomerProfile() {
 
     function submitSearch(event: React.FormEvent) {
         event.preventDefault();
-        router.get(route('search'), { q: search.trim() }, { preserveState: true });
+        router.get(route('home'), { q: search.trim() }, { preserveState: true });
     }
 
     function editProfile() {
@@ -1014,51 +1015,7 @@ export default function CustomerProfile() {
                     </Link>
                 </main>
 
-                {/* ── Bottom Navigation (matching welcome.tsx) ── */}
-                <nav
-                    aria-label="Mobile navigation"
-                    className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6] px-2 py-2.5 md:hidden"
-                >
-                    <Link href="/" className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]">
-                        <Home size={19} />
-                        Home
-                    </Link>
-                    <Link
-                        href="/customer/products"
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Grid2X2 size={19} />
-                        Products
-                    </Link>
-                    <Link
-                        href="/customer/favorites"
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Heart size={19} />
-                        Favorites
-                    </Link>
-                    <Link
-                        href="/customer/cart"
-                        className="relative flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <ShoppingCart size={19} />
-                        Cart
-                        {cartCount > 0 && (
-                            <span className="absolute -top-1 right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[8px] font-bold text-white">
-                                {cartCount}
-                            </span>
-                        )}
-                    </Link>
-                    <Link
-                        href="/customer/profile"
-                        aria-current="page"
-                        className="flex flex-col items-center gap-1 text-[10px] font-bold text-[#1f7a42]"
-                    >
-                        <UserRound size={19} />
-                        Profile
-                        <span className="h-0.5 w-5 rounded-full bg-[#1f7a42]" />
-                    </Link>
-                </nav>
+                <CustomerBottomNav />
             </div>
 
             <MapPickerModal

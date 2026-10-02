@@ -52,6 +52,8 @@ type ResponsiveProductDetailProps = {
     onUseVoucher: (voucher: VoucherOffer) => void;
     claimedVoucherIds: number[];
     claimingVoucherId: number | null;
+    isFavorited: boolean;
+    onToggleFavorite: () => void;
 };
 
 const colorSwatches: Record<string, string> = {
@@ -105,10 +107,11 @@ export default function ResponsiveProductDetail({
     onUseVoucher,
     claimedVoucherIds,
     claimingVoucherId,
+    isFavorited,
+    onToggleFavorite,
 }: ResponsiveProductDetailProps) {
     const { auth, cartCount = 0, siteSettings = {} } = usePage<SharedData>().props;
     const [quantity, setQuantity] = useState(1);
-    const [favorite, setFavorite] = useState(false);
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [search, setSearch] = useState('');
@@ -146,15 +149,6 @@ export default function ResponsiveProductDetail({
     const sizeOption = variantOptions.find((option) => /size/i.test(option.name));
     const organicProduct = /organic/i.test([product.name, product.description, product.material].filter(Boolean).join(' '));
 
-    const toggleFavorite = () => {
-        if (!auth.user) {
-            router.visit(route('login'));
-            return;
-        }
-        setFavorite((current) => !current);
-        router.post(route('customer.favorites.toggle', product.id), {}, { preserveScroll: true, preserveState: true });
-    };
-
     const purchase = async (buyNow: boolean) => {
         if (!auth.user) {
             router.visit(route('login'));
@@ -183,7 +177,7 @@ export default function ResponsiveProductDetail({
 
     const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        router.get(route('search'), { q: search.trim() }, { preserveState: true });
+        router.get(route('home'), { q: search.trim() }, { preserveState: true });
     };
 
     const avatarUrl = (avatar?: string) => (avatar ? (avatar.startsWith('http') || avatar.startsWith('/') ? avatar : `/storage/${avatar}`) : null);
@@ -461,11 +455,12 @@ export default function ResponsiveProductDetail({
                                 )}
                                 <button
                                     type="button"
-                                    onClick={toggleFavorite}
-                                    aria-label="Add to favorites"
+                                    onClick={onToggleFavorite}
+                                    aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                                    aria-pressed={isFavorited}
                                     className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#138047] shadow-sm"
                                 >
-                                    <Heart size={18} className={favorite ? 'fill-[#138047]' : ''} />
+                                    <Heart size={18} className={isFavorited ? 'fill-[#138047]' : ''} />
                                 </button>
                                 {displayImage ? (
                                     <img src={displayImage} alt={product.name} className="h-full max-h-[520px] w-full object-contain p-3 md:p-5" />

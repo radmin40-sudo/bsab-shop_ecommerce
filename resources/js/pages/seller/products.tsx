@@ -778,14 +778,6 @@ export default function SellerProducts({ products, categories, monitoring }: { p
         }
     };
 
-    const resetFilters = () => {
-        setSearch('');
-        setCategoryFilter('all');
-        setStatusFilter('all');
-        setStockFilter('all');
-        setSortOrder('newest');
-        setCurrentPage(1);
-    };
     const exportProducts = () => {
         const rows = [
             ['Product', 'SKU', 'Brand', 'Category', 'Price', 'Stock', 'Status'],
@@ -951,7 +943,7 @@ export default function SellerProducts({ products, categories, monitoring }: { p
                         </section>
                         <section className="bg-white p-3">
                             <div className="mb-2 flex items-center justify-between"><div><h2 className="text-[10px] font-bold text-[#25372c]">Quick Actions</h2><p className="text-[8px] text-[#7d8b82]">Common product tasks</p></div><Package size={14} className="text-[#40805a]" /></div>
-                            <div className="grid gap-1.5"><button type="button" onClick={() => openModal()} className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#19864b] text-[9px] font-semibold text-white hover:bg-[#126d39]"><Plus size={11} /> Add product</button><button type="button" onClick={resetFilters} className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#d5e3d9] text-[9px] font-semibold text-[#346848] hover:bg-[#f5faf6]"><Eye size={11} /> View all products</button><button type="button" onClick={exportProducts} className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#d5e3d9] text-[9px] font-semibold text-[#346848] hover:bg-[#f5faf6]"><Download size={11} /> Export product list</button></div>
+                            <div className="grid gap-1.5"><button type="button" onClick={() => openModal()} className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#19864b] text-[9px] font-semibold text-white hover:bg-[#126d39]"><Plus size={11} /> Add product</button><button type="button" onClick={exportProducts} className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#d5e3d9] text-[9px] font-semibold text-[#346848] hover:bg-[#f5faf6]"><Download size={11} /> Export product list</button></div>
                         </section>
                     </div>
 

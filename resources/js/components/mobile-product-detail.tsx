@@ -90,6 +90,8 @@ interface MobileProductDetailProps {
     stock: number;
     ratingAverage?: number;
     reviewCount?: number;
+    isFavorited: boolean;
+    onToggleFavorite: () => void;
 }
 
 function imageUrl(path?: string) {
@@ -134,11 +136,12 @@ export default function MobileProductDetail({
     stock,
     ratingAverage: propRatingAverage,
     reviewCount: propReviewCount,
+    isFavorited,
+    onToggleFavorite,
 }: MobileProductDetailProps) {
     const { auth } = usePage<SharedData>().props;
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [quantity, setQuantity] = useState(1);
-    const [isFavorite, setIsFavorite] = useState(false);
     const [busy, setBusy] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [toastType, setToastType] = useState<'success' | 'error'>('success');
@@ -271,13 +274,6 @@ export default function MobileProductDetail({
         }
     };
 
-    const toggleFavorite = () => {
-        setIsFavorite((prev) => !prev);
-        if (auth.user) {
-            router.post(route('customer.favorites.toggle', product.id), {}, { preserveScroll: true, preserveState: true });
-        }
-    };
-
     return (
         <div className="mobile-product-detail mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-white text-[#0f281e] selection:bg-emerald-100">
             <header className="sticky top-0 z-30 grid h-12 grid-cols-[40px_1fr_40px] items-center bg-white px-4">
@@ -332,11 +328,12 @@ export default function MobileProductDetail({
                     {/* Favorite/Heart Button */}
                     <button
                         type="button"
-                        onClick={toggleFavorite}
-                        aria-label="Add to favorites"
+                        onClick={onToggleFavorite}
+                        aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                        aria-pressed={isFavorited}
                         className="absolute top-3.5 right-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-xs transition active:scale-95"
                     >
-                        <Heart size={18} className={isFavorite ? 'fill-[#15803d] text-[#15803d]' : 'text-[#15803d]'} strokeWidth={2} />
+                        <Heart size={18} className={isFavorited ? 'fill-[#15803d] text-[#15803d]' : 'text-[#15803d]'} strokeWidth={2} />
                     </button>
 
                     {/* Image or Placeholder: If images exist, show image; otherwise show clean placeholder */}

@@ -1,5 +1,6 @@
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import CustomerBottomNav from '@/components/customer-bottom-nav';
 import {
     ArrowRight,
     Check,
@@ -71,10 +72,12 @@ export default function Welcome({
     categories = [],
     products = [],
     siteSettings = {},
+    query = '',
 }: {
     categories?: Category[];
     products?: Product[];
     siteSettings?: Record<string, string | null>;
+    query?: string;
 }) {
     const { auth, cartCount = 0 } = usePage<SharedData & { cartCount?: number }>().props;
     const brandName = siteSettings.brand_name || 'BSABShop';
@@ -99,7 +102,7 @@ export default function Welcome({
     const footerNewsletterText = siteSettings.footer_newsletter_text || 'Get the latest deals and updates.';
     const newsletterPlaceholder = siteSettings.newsletter_placeholder || 'Enter your email address';
     const [activeCategory, setActiveCategory] = useState('all');
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(query);
     const [liked, setLiked] = useState<number[]>(() => products.filter((product) => product.is_favorited).map((product) => product.id));
     const [accountOpen, setAccountOpen] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
@@ -172,7 +175,7 @@ export default function Welcome({
 
     function submitSearch(event: React.FormEvent) {
         event.preventDefault();
-        router.get(route('search'), { q: search.trim() }, { preserveState: true });
+        router.get(route('customer.products'), { q: search.trim() }, { preserveState: true });
     }
 
     return (
@@ -221,7 +224,9 @@ export default function Welcome({
                             onSubmit={submitSearch}
                             className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:my-0 lg:max-w-155"
                         >
-                            <Search size={16} className="shrink-0 text-[#647568]" />
+                            <button type="submit" aria-label="Search products" className="shrink-0 text-[#647568] transition hover:text-[#1f7a42]">
+                                <Search size={16} />
+                            </button>
                             <input
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
@@ -738,49 +743,7 @@ export default function Welcome({
                         </div>
                     </footer>
                 </main>
-                <nav
-                    className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6] px-2 py-2.5 lg:hidden"
-                    aria-label="Mobile navigation"
-                >
-                    <Link href={route('home')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-[#1f7a42]">
-                        <Home size={19} />
-                        Home
-                        <span className="h-0.5 w-5 rounded-full bg-[#1f7a42]" />
-                    </Link>
-                    <Link
-                        href={auth.user ? route('customer.products') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Grid2X2 size={19} />
-                        Products
-                    </Link>
-                    <Link
-                        href={auth.user ? route('customer.favorites') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Heart size={19} />
-                        Favorites
-                    </Link>
-                    <Link
-                        href={auth.user ? route('customer.cart') : route('login')}
-                        className="relative flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <ShoppingCart size={19} />
-                        Cart
-                        {auth.user && cartCount > 0 && (
-                            <span className="absolute -top-0.5 left-1/2 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
-                                {cartCount > 99 ? '99+' : cartCount}
-                            </span>
-                        )}
-                    </Link>
-                    <Link
-                        href={auth.user ? route('customer.profile') : route('login')}
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <UserRound size={19} />
-                        Profile
-                    </Link>
-                </nav>
+                <CustomerBottomNav />
 
                 {/* ── Mobile Universal Filter Modal ── */}
                 {filterOpen && (

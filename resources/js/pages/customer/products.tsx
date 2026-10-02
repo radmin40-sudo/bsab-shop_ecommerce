@@ -26,9 +26,17 @@ type Product = {
 };
 
 /* ─── Page ───────────────────────────────────────────────── */
-export default function CustomerProducts({ products = [], categories = [] }: { products?: Product[]; categories?: Category[] }) {
+export default function CustomerProducts({
+    products = [],
+    categories = [],
+    query = '',
+}: {
+    products?: Product[];
+    categories?: Category[];
+    query?: string;
+}) {
     const { auth, cartCount = 0 } = usePage<{ auth: { user: { id: number } | null }; cartCount?: number }>().props;
-    const [query, setQuery] = useState('');
+    const [search, setSearch] = useState(query);
     const [category, setCategory] = useState('all');
     const [favorites, setFavorites] = useState<number[]>(() => products.filter((p) => p.is_favorited).map((p) => p.id));
     const [sortBy, setSortBy] = useState<'latest' | 'price-asc' | 'price-desc' | 'rating'>('latest');
@@ -46,7 +54,7 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
 
     /* Filtering + sorting */
     const filteredProducts = useMemo(() => {
-        const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
         let result = products.filter((p) => {
             const text = [p.name, p.description, p.shop?.name, p.category?.name].filter(Boolean).join(' ').toLowerCase();
             const matchCategory = category === 'all' || p.category?.slug === category;
@@ -58,7 +66,7 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
         else if (sortBy === 'price-desc') result = [...result].sort((a, b) => Number(b.sale_price ?? b.base_price) - Number(a.sale_price ?? a.base_price));
         else if (sortBy === 'rating') result = [...result].sort((a, b) => (b.average_rating ?? 0) - (a.average_rating ?? 0));
         return result;
-    }, [products, query, category, sortBy, inStockOnly]);
+    }, [products, search, category, sortBy, inStockOnly]);
 
     const hasActiveFilters = sortBy !== 'latest' || inStockOnly || category !== 'all';
 
@@ -76,13 +84,13 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
                     <div className="search-pill">
                         <Search size={16} />
                         <input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search products, vendors…"
                             aria-label="Search products"
                         />
-                        {query && (
-                            <button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
+                        {search && (
+                            <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
                                 <X size={15} />
                             </button>
                         )}
@@ -130,7 +138,7 @@ export default function CustomerProducts({ products = [], categories = [] }: { p
                 </div>
 
                 {/* ── Product grid ────────────────────────── */}
-                <div className="grid">
+                <div className="product-grid">
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map((product) => {
                             const liked = favorites.includes(product.id);

@@ -1,8 +1,8 @@
 import InputError from '@/components/input-error';
+import CustomerBottomNav from '@/components/customer-bottom-nav';
 import { type SharedData } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
-    AlertCircle,
     ArrowLeft,
     Bell,
     Check,
@@ -12,18 +12,13 @@ import {
     Database,
     FileText,
     Globe,
-    Grid2X2,
-    Heart,
-    Home,
     Info,
     Loader2,
     Lock,
     LogOut,
     MapPin,
-    Package,
     Pencil,
     ShieldCheck,
-    ShoppingCart,
     Settings,
     Sparkles,
     Tag,
@@ -46,7 +41,6 @@ interface SettingsProps extends SharedData {
     avatarUrl?: string | null;
     recentOrdersCount?: number;
     vouchersCount?: number;
-    cartCount?: number;
     siteSettings?: Record<string, string | null>;
 }
 
@@ -56,7 +50,7 @@ export default function CustomerSettings({
     recentOrdersCount = 0,
     vouchersCount = 3,
 }: SettingsProps) {
-    const { auth, cartCount = 0, siteSettings = {} } = usePage<SettingsProps>().props;
+    const { auth, siteSettings = {} } = usePage<SettingsProps>().props;
     const user = auth.user;
 
     // Display info
@@ -582,55 +576,7 @@ export default function CustomerSettings({
                     </div>
                 </div>
 
-                {/* ── Mobile Bottom Navigation (Matching reference image) ── */}
-                <nav
-                    aria-label="Mobile navigation"
-                    className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#dce8de] bg-[#fbfaf6]/95 px-2 py-2.5 backdrop-blur-md pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(20,95,45,0.04)] lg:hidden"
-                >
-                    <Link
-                        href="/"
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Home size={19} />
-                        <span>Home</span>
-                    </Link>
-                    <Link
-                        href="/customer/products"
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Grid2X2 size={19} />
-                        <span>Category</span>
-                    </Link>
-                    <Link
-                        href="/customer/favorites"
-                        className="flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <Heart size={19} />
-                        <span>Favorites</span>
-                    </Link>
-                    <Link
-                        href="/customer/cart"
-                        className="relative flex flex-col items-center gap-1 text-[10px] font-semibold text-[#9a9aa5] transition hover:text-[#1f7a42]"
-                    >
-                        <ShoppingCart size={19} />
-                        <span>Cart</span>
-                        {cartCount > 0 && (
-                            <span className="absolute -top-1 right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#16803c] px-1 text-[8px] font-bold text-white">
-                                {cartCount > 99 ? '99+' : cartCount}
-                            </span>
-                        )}
-                    </Link>
-                    <Link
-                        href="/customer/settings"
-                        aria-current="page"
-                        className="relative flex flex-col items-center gap-1 text-[10px] font-bold text-[#1f7a42]"
-                    >
-                        <UserRound size={19} />
-                        <span>Profile</span>
-                        {/* Active underline indicator */}
-                        <span className="h-0.5 w-5 rounded-full bg-[#1f7a42]" />
-                    </Link>
-                </nav>
+                <CustomerBottomNav />
 
                 {/* ══════════════════════════════════════════════════════════════════════
                     MODALS & ACTION DRAWERS

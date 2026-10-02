@@ -15,6 +15,32 @@ class VoucherManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_seller_can_open_their_voucher_management_page(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create();
+        $seller->assignRole('seller');
+        $shop = $this->makeShop($seller, 'seller-voucher-page');
+        Voucher::create([
+            'seller_id' => $shop->id,
+            'name' => 'Seller page offer',
+            'code' => 'SELLERPAGE10',
+            'type' => 'fixed',
+            'discount_value' => 10,
+            'apply_to' => 'all',
+            'customer_eligibility' => 'all',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($seller)
+            ->get(route('seller.vouchers'))
+            ->assertOk()
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->component('vouchers/index')
+                ->has('vouchers.data', 1)
+                ->where('vouchers.data.0.code', 'SELLERPAGE10'));
+    }
+
     public function test_seller_cannot_modify_another_sellers_voucher(): void
     {
         Role::findOrCreate('seller', 'web');

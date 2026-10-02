@@ -1,4 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
+import CustomerBottomNav from '@/components/customer-bottom-nav';
 import {
     BarChart3,
     Box,
@@ -353,13 +354,6 @@ function CustomerLayout({
     const [accountOpen, setAccountOpen] = useState(false);
     const [search, setSearch] = useState('');
     const { cartCount = 0 } = usePage<{ cartCount?: number }>().props;
-    const customerLinks = [
-        { label: 'Home', href: '/', icon: Home },
-        { label: 'Products', href: '/customer/products', icon: Grid2X2 },
-        { label: 'Favorites', href: '/customer/favorites', icon: Heart },
-        { label: 'Cart', href: '/customer/cart', icon: ShoppingCart },
-        { label: 'Profile', href: '/customer/profile', icon: UserRound },
-    ];
     const desktopCustomerLinks = [
         { label: 'Home', href: '/', icon: Home },
         { label: 'Products', href: '/customer/products', icon: Grid2X2 },
@@ -374,7 +368,7 @@ function CustomerLayout({
 
     function submitSearch(event: React.FormEvent) {
         event.preventDefault();
-        router.get('/search', { q: search.trim() });
+        router.get('/', { q: search.trim() });
     }
 
     return (
@@ -552,33 +546,7 @@ function CustomerLayout({
                 </header>
             )}
             <main className="mx-auto max-w-310 px-5 py-6 pb-28 sm:px-8 sm:py-8 lg:pb-12">{children}</main>
-            <nav
-                className="fixed right-0 bottom-0 left-0 z-30 flex items-center justify-around border-t border-[#def0e2] bg-white px-2 py-2.5 pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
-                aria-label="Bottom navigation"
-            >
-                {customerLinks.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActiveLink(item.href);
-                    const isCart = item.href === '/customer/cart';
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`relative flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-semibold transition-colors ${
-                                active ? 'text-[#1f7a42]' : 'text-[#9A9AA5] hover:text-[#1f7a42]'
-                            }`}
-                        >
-                            <Icon size={22} />
-                            {isCart && cartCount > 0 && (
-                                <span className="absolute -top-0.5 left-1/2 ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2a9b59] px-1 text-[9px] font-bold text-white">
-                                    {cartCount > 99 ? '99+' : cartCount}
-                                </span>
-                            )}
-                            {item.label}
-                        </Link>
-                    );
-                })}
-            </nav>
+            <CustomerBottomNav />
         </div>
     );
 }

@@ -209,9 +209,6 @@ export default function AdminDashboard({
                         <h1 className="text-2xl leading-tight font-bold tracking-tight text-[#174c3e] sm:text-[29px]">Good morning, admin.</h1>
                         <p className="mt-1 text-xs leading-5 text-[#6a7c70]">Every number below is calculated from your live marketplace database.</p>
                     </div>
-                    <Link href="/admin/products" className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#188747] px-4 text-xs font-semibold text-white transition hover:bg-[#126d39] sm:w-auto">
-                        <Plus size={15} /> Add product
-                    </Link>
                 </div>
 
                 <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">

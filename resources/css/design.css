@@ -305,7 +305,7 @@ input {
 }
 
 /* ─── Product grid ──────────────────────────────────────── */
-.grid {
+.product-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
@@ -313,13 +313,13 @@ input {
 }
 
 @media (min-width: 620px) {
-    .grid {
+    .product-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (min-width: 1200px) {
-    .grid {
+    .product-grid {
         grid-template-columns: repeat(5, 1fr);
     }
 }
