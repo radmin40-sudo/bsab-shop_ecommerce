@@ -13,7 +13,9 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -57,6 +59,15 @@ class AdminSettingsController extends Controller
             ->take(80)
             ->values();
 
+        $activeSessions = 0;
+        $sessionTable = (string) config('session.table', 'sessions');
+        if (config('session.driver') === 'database' && Schema::hasTable($sessionTable)) {
+            $activeSessions = DB::table($sessionTable)
+                ->where('last_activity', '>=', now()->subMinutes((int) config('session.lifetime', 120))->timestamp)
+                ->whereNotNull('user_id')
+                ->count();
+        }
+
         return Inertia::render('admin/settings', [
             'cache' => [
                 'config' => config('app.env'),
@@ -67,7 +78,7 @@ class AdminSettingsController extends Controller
                 'updatedAt' => File::exists($logPath) ? Carbon::createFromTimestamp(File::lastModified($logPath))->toISOString() : null,
                 'entries' => $entries,
                 'stats' => [
-                    'activeSessions' => $activityLogs->where('eventType', 'login')->where('status', 'success')->count(),
+                    'activeSessions' => $activeSessions,
                     'uniqueDevices' => $activityLogs->pluck('device')->filter()->unique()->count(),
                     'uniqueIps' => $entries->pluck('ip')->filter()->unique()->count(),
                     'failedLogins' => $entries->where('eventType', 'login')->where('status', 'failed')->count(),
@@ -167,7 +178,9 @@ class AdminSettingsController extends Controller
 
     public function clearCache(): RedirectResponse
     {
-        Artisan::call('optimize:clear');
+        if (Artisan::call('optimize:clear') !== 0) {
+            return back()->withErrors(['cache' => 'Runtime cache refresh failed.']);
+        }
 
         return back()->with('success', 'Application cache cleared successfully.');
     }
@@ -209,7 +222,7 @@ class AdminSettingsController extends Controller
         $data = $request->validate([
             'brand_name' => ['nullable', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:'.config('images.max_upload_kb')],
-            'login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
+            'login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'hero_media' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg,mp4,webm,mov', 'max:20480'],
             'hero_title' => ['nullable', 'string', 'max:255'],
             'hero_highlight' => ['nullable', 'string', 'max:255'],

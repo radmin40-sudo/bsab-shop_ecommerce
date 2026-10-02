@@ -21,6 +21,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('orders', [AdminOrderController::class, 'index']);
+        Route::patch('orders/{order}', [AdminOrderController::class, 'update']);
         Route::get('sellers', [AdminSellerController::class, 'index']);
         Route::post('sellers', [AdminSellerController::class, 'store']);
         Route::patch('sellers/{seller}', [AdminSellerController::class, 'update']);
@@ -34,7 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('products', [SellerProductController::class, 'store']);
         Route::patch('products/{product}', [SellerProductController::class, 'update']);
         Route::delete('products/{product}', [SellerProductController::class, 'destroy']);
-        Route::get('orders', fn (Request $request) => $request->user()->shop->orderItems()->with('order.user', 'product.images')->latest()->paginate(20));
+        Route::get('orders', fn (Request $request) => $request->user()->shop->orderItems()->with('order.user', 'order.payments', 'product.images')->latest()->paginate(20));
         Route::patch('orders/items/{item}', function (Request $request, OrderItem $item) {
             abort_unless($item->shop->user_id === $request->user()->id, 403);
             $item->update($request->validate(['fulfillment_status' => 'required|in:processing,accepted,declined,shipped,delivered,cancelled']));

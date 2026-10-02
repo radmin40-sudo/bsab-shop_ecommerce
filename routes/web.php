@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\AdminRegistrationController;
 use App\Http\Controllers\LaravelCrudTesterController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SellerOverviewController;
 use App\Http\Controllers\SellerProductController;
 use App\Http\Controllers\SellerShopController;
 use App\Http\Controllers\TestGeminiImageController;
@@ -220,7 +221,7 @@ Route::get('/test-gemini', function () use ($extractGeminiDiagnosticError) {
     ], 404);
 })->name('test.gemini');
 
-Route::get('/products/{product}', function (Product $product, VoucherService $vouchers) {
+Route::get('/products/{product}', function (Request $request, Product $product, VoucherService $vouchers) {
     abort_unless($product->status !== 'rejected', 404);
 
     $similarProducts = Product::published()
@@ -249,7 +250,7 @@ Route::get('/products/{product}', function (Product $product, VoucherService $vo
             'variants.optionValues.optionValue.option',
         ]),
         'similarProducts' => $similarProducts,
-        'availableVouchers' => $vouchers->availableForProduct($product, auth()->user()),
+        'availableVouchers' => $vouchers->availableForProduct($product, $request->user()),
     ]);
 })->name('products.show');
 
@@ -302,6 +303,7 @@ Route::middleware(['guest', 'throttle:5,1'])->group(function () {
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/analytics', [AdminDashboardController::class, 'index'])->name('admin.analytics');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('admin.profile');
     Route::get('/settings', [AdminSettingsController::class, 'index'])->middleware(RequestDeviceModelHint::class)->name('admin.settings');
         Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('admin.vouchers');
@@ -320,8 +322,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::post('/settings/home-content', [AdminSettingsController::class, 'saveHomeContent'])->name('admin.settings.home-content');
     Route::get('/sellers', fn () => Inertia::render('admin/sellers'))->name('admin.sellers');
     Route::get('/customers', [AdminUserController::class, 'customers'])->name('admin.customers');
+    Route::patch('/customers/{user}', [AdminUserController::class, 'updateCustomer'])->name('admin.customers.update');
     Route::get('/products', [AdminProductController::class, 'index'])->name('admin.products');
     Route::patch('/products/approve-all', [AdminProductController::class, 'approveAll'])->name('admin.products.approve-all');
+    Route::patch('/products/approve-selected', [AdminProductController::class, 'approveSelected'])->name('admin.products.approve-selected');
     Route::patch('/products/{product}', [AdminProductController::class, 'update'])->name('admin.products.update');
     Route::get('/orders', fn () => Inertia::render('admin/orders'))->name('admin.orders');
     Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users');
@@ -336,25 +340,30 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
 });
 
 Route::middleware(['auth', 'role:seller'])->prefix('seller')->group(function () {
-    Route::get('/', fn () => Inertia::render('seller/dashboard'))->name('seller.dashboard');
+    Route::get('/', [SellerOverviewController::class, 'dashboard'])->name('seller.dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('seller.profile');
-        Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('seller.vouchers');
-        Route::get('/vouchers/products', [VoucherManagementController::class, 'products'])->name('seller.vouchers.products');
-        Route::get('/vouchers/{voucher}', [VoucherManagementController::class, 'show'])->name('seller.vouchers.show');
-        Route::post('/vouchers', [VoucherManagementController::class, 'store'])->name('seller.vouchers.store');
-        Route::patch('/vouchers/{voucher}', [VoucherManagementController::class, 'update'])->name('seller.vouchers.update');
-        Route::post('/vouchers/{voucher}/toggle', [VoucherManagementController::class, 'toggle'])->name('seller.vouchers.toggle');
-        Route::post('/vouchers/{voucher}/duplicate', [VoucherManagementController::class, 'duplicate'])->name('seller.vouchers.duplicate');
-        Route::delete('/vouchers/{voucher}', [VoucherManagementController::class, 'destroy'])->name('seller.vouchers.destroy');
+    Route::get('/shop', [SellerShopController::class, 'show'])->name('seller.shop');
+    Route::post('/shop', [SellerShopController::class, 'update'])->name('seller.shop.store');
+    Route::patch('/shop', [SellerShopController::class, 'update'])->name('seller.shop.update');
+    Route::get('/customers', [SellerOverviewController::class, 'customers'])->name('seller.customers');
+    Route::get('/analytics', [SellerOverviewController::class, 'analytics'])->name('seller.analytics');
+    Route::get('/marketing', fn () => to_route('seller.vouchers'))->name('seller.marketing');
+    Route::get('/payments', [SellerOverviewController::class, 'payments'])->name('seller.payments');
+    Route::get('/settings', [SellerOverviewController::class, 'settings'])->name('seller.settings');
+    Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('seller.vouchers');
+    Route::get('/vouchers/products', [VoucherManagementController::class, 'products'])->name('seller.vouchers.products');
+    Route::get('/vouchers/{voucher}', [VoucherManagementController::class, 'show'])->name('seller.vouchers.show');
+    Route::post('/vouchers', [VoucherManagementController::class, 'store'])->name('seller.vouchers.store');
+    Route::patch('/vouchers/{voucher}', [VoucherManagementController::class, 'update'])->name('seller.vouchers.update');
+    Route::post('/vouchers/{voucher}/toggle', [VoucherManagementController::class, 'toggle'])->name('seller.vouchers.toggle');
+    Route::post('/vouchers/{voucher}/duplicate', [VoucherManagementController::class, 'duplicate'])->name('seller.vouchers.duplicate');
+    Route::delete('/vouchers/{voucher}', [VoucherManagementController::class, 'destroy'])->name('seller.vouchers.destroy');
     Route::get('/products', [SellerProductController::class, 'index'])->name('seller.products');
     Route::post('/products/ai-analyze', [ProductAIController::class, 'analyze'])->name('seller.products.ai-analyze');
     Route::post('/products', [SellerProductController::class, 'store'])->name('seller.products.store');
     Route::patch('/products/{product}', [SellerProductController::class, 'update'])->name('seller.products.update');
     Route::delete('/products/{product}', [SellerProductController::class, 'destroy'])->name('seller.products.destroy');
-    Route::get('/orders', fn () => Inertia::render('seller/orders'))->name('seller.orders');
-    Route::get('/shop', [SellerShopController::class, 'show'])->name('seller.shop');
-    Route::post('/shop', [SellerShopController::class, 'update'])->name('seller.shop.store');
-    Route::patch('/shop', [SellerShopController::class, 'update'])->name('seller.shop.update');
+    Route::get('/orders', [SellerOverviewController::class, 'orders'])->name('seller.orders');
 });
 
 Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function () use ($storefrontProps) {

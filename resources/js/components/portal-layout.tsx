@@ -71,6 +71,7 @@ const adminNavigationGroups: { label: string; items: NavigationItem[] }[] = [
         { label: 'Products', href: '/admin/products', icon: Package },
         { label: 'Orders', href: '/admin/orders', icon: ClipboardList },
         { label: 'Categories', href: '/admin/categories', icon: Tags },
+        { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     ],
     [
         { label: 'Sellers', href: '/admin/sellers', icon: Store },
@@ -87,25 +88,16 @@ const adminNavigationGroups: { label: string; items: NavigationItem[] }[] = [
     items,
 }));
 
-const sellerNavigationGroups: { id: string; label: string; items: NavigationItem[] }[] = [
-    { id: 'workspace', label: 'Seller Workspace', items: [{ label: 'Overview', href: '/seller', icon: LayoutDashboard }] },
-    {
-        id: 'marketplace',
-        label: 'Marketplace',
-        items: [
-            { label: 'Products', href: '/seller/products', icon: Package },
-            { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
-        ],
-    },
-    {
-        id: 'account',
-        label: 'Account',
-        items: [
-            { label: 'Profile', href: '/seller/profile', icon: CircleUserRound },
-            { label: 'Shop Profile', href: '/seller/shop', icon: Store },
-            { label: 'Vouchers', href: '/seller/vouchers', icon: TicketPercent },
-        ],
-    },
+const sellerNavigation: Array<NavigationItem & { badge?: number }> = [
+    { label: 'Dashboard', href: '/seller', icon: LayoutDashboard },
+    { label: 'My Shop', href: '/seller/shop', icon: Store },
+    { label: 'Products', href: '/seller/products', icon: Package },
+    { label: 'Orders', href: '/seller/orders', icon: ClipboardList, badge: 3 },
+    { label: 'Customers', href: '/seller/customers', icon: UsersRound },
+    { label: 'Analytics', href: '/seller/analytics', icon: BarChart3 },
+    { label: 'Vouchers', href: '/seller/vouchers', icon: TicketPercent },
+    { label: 'Payments', href: '/seller/payments', icon: CircleDollarSign },
+    { label: 'Settings', href: '/seller/settings', icon: Settings },
 ];
 
 export function PortalLayout({
@@ -113,12 +105,14 @@ export function PortalLayout({
     eyebrow,
     title,
     hideHeader = false,
+    wideContent = false,
     children,
 }: {
     role: PortalRole;
     title: string;
     eyebrow?: string;
     hideHeader?: boolean;
+    wideContent?: boolean;
     children: React.ReactNode;
 }) {
     const page = usePage<{ auth: { user: { name: string; email: string; avatar?: string } }; siteSettings?: Record<string, string | null> }>();
@@ -144,7 +138,7 @@ export function PortalLayout({
     return (
         <div className="min-h-screen bg-[#f5fcf7] text-[#17281d]">
             <aside
-                className={`fixed inset-y-0 left-0 z-30 flex h-screen w-60 flex-col overflow-y-auto border-r border-[#def0e2] bg-white p-4 shadow-[0_6px_20px_rgba(22,59,36,0.04)] transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+                className={`fixed inset-y-0 left-0 z-30 flex h-screen ${role === 'seller' ? 'w-58.75' : 'w-60'} flex-col overflow-y-auto border-r border-[#def0e2] bg-white p-4 shadow-[0_6px_20px_rgba(22,59,36,0.04)] transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
             >
                 <div className="flex items-center gap-2 border-b border-[#def0e2] px-2 pb-5">
                     <Link
@@ -160,7 +154,7 @@ export function PortalLayout({
                                     event.currentTarget.onerror = null;
                                     event.currentTarget.src = '/logo.svg';
                                 }}
-                                className="h-full w-full object-contain"
+                                className="h-full w-full object-cover"
                             />
                         ) : (
                             <Store size={20} />
@@ -176,11 +170,7 @@ export function PortalLayout({
                         <X size={20} />
                     </button>
                 </div>
-                <div className="mt-5 rounded-[14px] bg-[#e6f7eb] p-3">
-                    <p className="text-[10px] font-bold tracking-[0.14em] text-[#2c9350] uppercase">{role} workspace</p>
-                    <p className="mt-1 truncate text-sm font-semibold text-[#163b24]">{auth.user.name}</p>
-                    <p className="mt-0.5 truncate text-xs text-[#647568]">{auth.user.email}</p>
-                </div>
+                <div className="my-4 h-px bg-[#d6e7da]" />
                 <nav className="space-y-1">
                     {role === 'admin'
                         ? adminNavigationGroups.map((group, groupIndex) => (
@@ -206,31 +196,25 @@ export function PortalLayout({
                               </div>
                           ))
                         : role === 'seller'
-                          ? sellerNavigationGroups.map((group, groupIndex) => (
-                                <div key={group.id} className={groupIndex === 3 ? 'mt-4 border-t border-[#dcebe0] pt-3' : ''}>
-                                    {group.label && (
-                                        <p className="px-3 pb-2 text-[10px] font-bold tracking-[0.14em] text-[#9fb6a6] uppercase">{group.label}</p>
-                                    )}
-                                    <div className="space-y-1">
-                                        {group.items.map((item) => {
-                                            const Icon = item.icon;
-                                            const active =
-                                                item.href === '/seller' ? url === '/seller' : url === item.href || url.startsWith(item.href);
-                                            return (
-                                                <Link
-                                                    key={item.href}
-                                                    href={item.href}
-                                                    className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition ${active ? 'bg-[#e6f7eb] font-semibold text-[#1f7a42]' : 'font-medium text-[#17281d]/70 hover:bg-[#f5fcf7] hover:text-[#1f7a42]'}`}
-                                                >
-                                                    <Icon size={20} strokeWidth={2} />
-                                                    {item.label}
-                                                    {active && <ChevronRight size={15} className="ml-auto" />}
-                                                </Link>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))
+                          ? sellerNavigation.map((item) => {
+                                const Icon = item.icon;
+                                const active = item.href === '/seller' ? url === '/seller' : url === item.href || url.startsWith(item.href);
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition ${active ? 'bg-[#eef0ef] font-semibold text-[#26372d]' : 'font-medium text-[#657168] hover:bg-[#f5f7f5] hover:text-[#315640]'}`}
+                                    >
+                                        <Icon size={18} strokeWidth={1.8} className={active ? 'text-[#315640]' : 'text-[#5f7968]'} />
+                                        <span className="flex-1 text-left">{item.label}</span>
+                                        {item.badge ? (
+                                            <span className="min-w-5 rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                                {item.badge}
+                                            </span>
+                                        ) : null}
+                                    </Link>
+                                );
+                            })
                           : navigation.customer.map((item) => {
                                 const Icon = item.icon;
                                 const active = url === item.href || (item.href !== `/${role}` && url.startsWith(item.href));
@@ -247,15 +231,18 @@ export function PortalLayout({
                                 );
                             })}
                 </nav>
-                <div className="mt-auto space-y-1 border-t border-[#dcebe0] pt-4">
-                    <Link
-                        href={route('logout')}
-                        method="post"
-                        as="button"
-                        className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm text-[#647568] hover:bg-[#fbeaea] hover:text-[#b3413a]"
+                <div className="mt-auto border-t border-[#d6e7da] pt-4">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (window.confirm('Are you sure you want to log out?')) {
+                                router.post(route('logout'));
+                            }
+                        }}
+                        className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium text-[#173b2a] transition hover:bg-[#fbeaea] hover:text-[#b3413a]"
                     >
-                        <LogOut size={20} strokeWidth={2} /> Log out
-                    </Link>
+                        <LogOut size={18} /> Log Out
+                    </button>
                 </div>
             </aside>
             {open && (
@@ -265,7 +252,7 @@ export function PortalLayout({
                     aria-label="Close navigation overlay"
                 />
             )}
-            <div className="lg:pl-60">
+            <div className={role === 'seller' ? 'lg:pl-58.75' : 'lg:pl-60'}>
                 <header className="sticky top-0 z-10 flex h-17 items-center gap-3 border-b border-[#def0e2] bg-[#f5fcf7]/90 px-4 backdrop-blur-md sm:gap-5 sm:px-7">
                     <button
                         onClick={() => setOpen(true)}
@@ -342,7 +329,9 @@ export function PortalLayout({
                         </div>
                     </div>
                 </header>
-                <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-7 [&_section]:rounded-[20px] [&_section]:border-[#def0e2] [&_section]:shadow-[0_6px_20px_rgba(22,59,36,0.06)]">
+                <main
+                    className={`${wideContent ? '' : 'mx-auto max-w-7xl'} p-4 sm:p-6 lg:p-7 [&_section]:rounded-[20px] [&_section]:border-[#def0e2] [&_section]:shadow-[0_6px_20px_rgba(22,59,36,0.06)]`}
+                >
                     {children}
                 </main>
             </div>
@@ -477,7 +466,12 @@ function CustomerLayout({
                                 className="w-full bg-transparent text-sm outline-none placeholder:text-[#9fb6a6]"
                             />
                             {search && (
-                                <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
+                                <button
+                                    type="button"
+                                    onClick={() => setSearch('')}
+                                    aria-label="Clear search"
+                                    className="text-[#5c6e63] hover:text-[#173b2a]"
+                                >
                                     <X size={15} />
                                 </button>
                             )}

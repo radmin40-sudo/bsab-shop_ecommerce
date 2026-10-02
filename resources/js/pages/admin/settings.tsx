@@ -1,9 +1,12 @@
 import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
+    Activity,
     Check,
     ChevronDown,
+    CircleAlert,
     FileText,
+    Info,
     Laptop,
     Loader2,
     PencilLine,
@@ -15,13 +18,13 @@ import {
     Smartphone,
     Tag,
     Trash2,
+    TriangleAlert,
     UserRound,
     Warehouse,
     X,
-    Zap,
     type LucideIcon,
 } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 type SiteSettings = {
     brand_name?: string;
@@ -107,17 +110,38 @@ function formatDate(timestamp: string | number | null) {
 
 function severityClass(severity: LogEntry['severity']) {
     return {
-        info: 'bg-[#eaf6ee] text-[#287d48]',
+        info: 'bg-[#eaf1ff] text-[#4377b8]',
         warning: 'bg-[#fff4df] text-[#a86618]',
         error: 'bg-[#fbe8e5] text-[#ad4437]',
         critical: 'bg-[#f3e5ee] text-[#8d315f]',
     }[severity];
 }
 
+function severityIcon(severity: LogEntry['severity']): LucideIcon {
+    return {
+        info: Info,
+        warning: TriangleAlert,
+        error: CircleAlert,
+        critical: ShieldAlert,
+    }[severity];
+}
+
+function SeverityBadge({ severity }: { severity: LogEntry['severity'] }) {
+    const Icon = severityIcon(severity);
+
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[8px] font-bold uppercase ${severityClass(severity)}`}>
+            <Icon size={10} aria-hidden="true" />
+            {severity}
+        </span>
+    );
+}
+
 export default function AdminSettings({ cache, logs, siteSettings, storageStatus }: AdminSettingsProps) {
     const [query, setQuery] = useState('');
     const [severity, setSeverity] = useState('all');
     const [status, setStatus] = useState('all');
+    const [eventPage, setEventPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
     const logoStorageStatus = storageStatus?.logo_path ?? {
         key: 'logo_path',
@@ -140,6 +164,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
     const [mediaUploading, setMediaUploading] = useState<'logo' | 'login_background' | 'hero_media' | null>(null);
     const [mediaNotice, setMediaNotice] = useState<{ type: 'success' | 'error'; message: string; field: string } | null>(null);
     const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+    const [mediaPreviews, setMediaPreviews] = useState<Record<string, string>>({});
     const cacheForm = useForm({});
     const logsForm = useForm({});
     const categoriesForm = useForm({});
@@ -169,6 +194,22 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         newsletter_placeholder: siteSettings.newsletter_placeholder ?? 'Enter your email address',
     });
 
+    useEffect(() => {
+        const files: Record<string, File | null> = {
+            logo: homeForm.data.logo,
+            login_background: homeForm.data.login_background,
+            hero_media: homeForm.data.hero_media,
+        };
+        const previews = Object.fromEntries(
+            Object.entries(files)
+                .filter((entry): entry is [string, File] => entry[1] !== null)
+                .map(([field, file]) => [field, URL.createObjectURL(file)]),
+        );
+        setMediaPreviews(previews);
+
+        return () => Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+    }, [homeForm.data.logo, homeForm.data.login_background, homeForm.data.hero_media]);
+
     function clearCache(event: FormEvent) {
         event.preventDefault();
         cacheForm.post(route('admin.settings.cache.clear'), { preserveScroll: true });
@@ -183,7 +224,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
 
     function clearCategories(event: FormEvent) {
         event.preventDefault();
-        if (window.confirm('Delete all categories? This will remove every category group and cannot be undone.')) {
+        if (window.confirm('Delete all categories? This action permanently removes all category records and may affect products assigned to them.')) {
             categoriesForm.post(route('admin.settings.categories.clear'), { preserveScroll: true });
         }
     }
@@ -197,14 +238,25 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
 
     function clearOrders(event: FormEvent) {
         event.preventDefault();
-        if (window.confirm('Permanently delete all orders, including archived orders? This cannot be undone.')) {
+        if (
+            window.confirm(
+                'Delete all orders? This action permanently removes every active and archived order from the marketplace database and cannot be undone.',
+            )
+        ) {
             ordersForm.post(route('admin.settings.orders.clear'), { preserveScroll: true });
         }
     }
 
     function saveHomeContent(event: FormEvent) {
         event.preventDefault();
-        homeForm.post(route('admin.settings.home-content'), { preserveScroll: true, forceFormData: true });
+        homeForm.post(route('admin.settings.home-content'), {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                homeForm.setData((data) => ({ ...data, logo: null, login_background: null, hero_media: null }));
+                setMediaNotice(null);
+            },
+        });
     }
 
     async function uploadMedia(field: 'logo' | 'login_background' | 'hero_media', file: File | null, input?: HTMLInputElement | null) {
@@ -212,56 +264,45 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
             return;
         }
 
+        const maxBytes = field === 'hero_media' ? 20 * 1024 * 1024 : 10 * 1024 * 1024;
+        const acceptedTypes =
+            field === 'hero_media'
+                ? ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime']
+                : field === 'logo'
+                  ? ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+                  : ['image/jpeg', 'image/png', 'image/webp'];
+        if (!acceptedTypes.includes(file.type)) {
+            setMediaNotice({ type: 'error', message: 'Choose a supported image or video file.', field });
+            if (input) input.value = '';
+            return;
+        }
+        if (file.size > maxBytes) {
+            setMediaNotice({ type: 'error', message: `The file must be ${field === 'hero_media' ? '20' : '10'} MB or smaller.`, field });
+            if (input) input.value = '';
+            return;
+        }
+
         setMediaUploading(field);
         setMediaNotice(null);
 
         try {
-            const processedFile = file.type.startsWith('image/')
-                ? await optimizeImage(file, {
-                      maxWidth: field === 'logo' ? 1200 : 1600,
-                      maxHeight: field === 'logo' ? 1200 : 1000,
-                      maxBytes: 1_500_000,
-                  })
-                : file;
-
-            router.post(
-                route('admin.settings.home-content'),
-                { [field]: processedFile },
-                {
-                    preserveScroll: true,
-                    forceFormData: true,
-                    onSuccess: () => {
-                        setMediaUploading(null);
-                        setMediaNotice({
-                            type: 'success',
-                            message: `${field === 'login_background' ? 'Login background' : field === 'hero_media' ? 'Hero media' : 'Logo'} saved successfully.`,
-                            field,
-                        });
-                        if (input) {
-                            input.value = '';
-                        }
-                        homeForm.setData(field, null);
-                        setBrokenImages((prev) => ({ ...prev, [field]: false }));
-                    },
-                    onError: (errs) => {
-                        setMediaUploading(null);
-                        const errorMsg =
-                            errs[field] ||
-                            (typeof errs === 'object' && Object.values(errs)[0]) ||
-                            'Upload failed. Please check the file format and size.';
-                        setMediaNotice({
-                            type: 'error',
-                            message: String(errorMsg),
-                            field,
-                        });
-                        if (input) {
-                            input.value = '';
-                        }
-                    },
-                },
-            );
+            const processedFile =
+                file.type.startsWith('image/') && file.type !== 'image/svg+xml'
+                    ? await optimizeImage(file, {
+                          maxWidth: field === 'logo' ? 1200 : 1600,
+                          maxHeight: field === 'logo' ? 1200 : 1000,
+                          maxBytes,
+                      })
+                    : file;
+            homeForm.setData(field, processedFile);
+            setBrokenImages((prev) => ({ ...prev, [field]: false }));
+            setMediaNotice({
+                type: 'success',
+                message: `${formatBytes(processedFile.size)} preview ready. Save homepage content to apply this change.`,
+                field,
+            });
+            if (input) input.value = '';
         } catch {
-            setMediaUploading(null);
             setMediaNotice({
                 type: 'error',
                 message: 'Failed to process file before uploading.',
@@ -271,6 +312,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                 input.value = '';
             }
         }
+        setMediaUploading(null);
     }
 
     function resetMedia(field: 'logo' | 'login_background' | 'hero_media') {
@@ -326,6 +368,10 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
             }),
         [logs.entries, query, severity, status],
     );
+    const eventPageSize = 6;
+    const eventPageCount = Math.max(1, Math.ceil(filteredLogs.length / eventPageSize));
+    const currentEventPage = Math.min(eventPage, eventPageCount);
+    const visibleLogs = filteredLogs.slice((currentEventPage - 1) * eventPageSize, currentEventPage * eventPageSize);
     const statCards: [string, number, LucideIcon][] = [
         ['Active sessions', logs.stats.activeSessions, UserRound],
         ['Unique devices', logs.stats.uniqueDevices, Laptop],
@@ -339,94 +385,137 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         <>
             <Head title="Admin settings" />
             <PortalLayout role="admin" title="System settings" eyebrow="Platform controls">
-                <div className="mb-6 min-w-0 sm:mb-8">
-                    <p className="font-mono text-[11px] font-bold tracking-[0.2em] text-[#b06b38] uppercase">Maintenance center</p>
-                    <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-4xl">
-                        Keep the platform healthy.
+                <div className="mb-4 min-w-0 sm:mb-5">
+                    <Link
+                        href={route('admin.dashboard')}
+                        className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#258553] hover:underline"
+                    >
+                        <ChevronDown size={12} className="rotate-90" /> Back to dashboard
+                    </Link>
+                    <h1 className="font-display mt-1 text-2xl leading-tight font-bold tracking-tight text-[#173b27] sm:text-3xl">
+                        Maintenance center
                     </h1>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6a7c70]">
+                    <p className="mt-1 text-[11px] font-semibold text-[#288b50]">Keep the platform healthy.</p>
+                    <p className="mt-1 max-w-2xl text-[10px] leading-4 text-[#6a7c70]">
                         Manage application caches and inspect recent system logs from one protected workspace.
                     </p>
                 </div>
 
-                <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-2">
-                    <section className="relative min-w-0 overflow-hidden border border-[#dce8dc] bg-[#f6fbf5] p-4 sm:p-6 xl:col-span-2">
-                        <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full border-18 border-[#e5f2e4]" />
+                <div className="grid min-w-0 gap-3 xl:grid-cols-12">
+                    <section className="relative min-w-0 overflow-hidden rounded-xl border border-[#e4ebe6] bg-white p-4 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:p-5 xl:col-span-7">
                         <div className="relative">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex min-w-0 items-start gap-3">
-                                    <span className="shrink-0 rounded-xl bg-[#173b27] p-3 text-[#d6edd8] shadow-sm">
-                                        <Zap size={20} />
+                                    <span className="shrink-0 rounded-full bg-[#e8f5ec] p-2.5 text-[#258553]">
+                                        <Server size={18} />
                                     </span>
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Application cache</p>
-                                        <h2 className="font-display mt-1 text-xl font-bold wrap-break-word text-[#173b27]">Refresh runtime data</h2>
+                                        <h2 className="text-sm font-bold text-[#25372c]">Application cache</h2>
+                                        <p className="mt-0.5 text-[9px] text-[#7d8b82]">Refresh runtime data</p>
                                     </div>
                                 </div>
                                 <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#cfe5d0] bg-white px-2.5 py-1 text-[10px] font-bold tracking-wide text-[#287d48] uppercase">
                                     <span className="h-1.5 w-1.5 rounded-full bg-[#42a85f]" /> Ready
                                 </span>
                             </div>
-                            <p className="mt-6 max-w-lg text-sm leading-6 text-[#5f7465]">
+                            <p className="mt-3 max-w-lg text-[10px] leading-4 text-[#5f7465]">
                                 Rebuild the compiled configuration, routes, views, and event cache after deployment or settings changes.
                             </p>
-                            <div className="mt-6 grid gap-2 sm:grid-cols-3">
-                                <div className="rounded-lg border border-[#e1ece0] bg-white/75 p-3">
-                                    <p className="text-[10px] font-bold tracking-wider text-[#8b998e] uppercase">Environment</p>
-                                    <p className="mt-1 text-sm font-semibold text-[#294231] capitalize">{cache.config}</p>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                                <div className="rounded-lg border border-[#e8eee9] bg-[#fbfdfb] p-2.5">
+                                    <p className="text-[9px] font-semibold text-[#8b998e]">Environment</p>
+                                    <p className="mt-1 text-[10px] font-semibold text-[#294231] capitalize">{cache.config}</p>
                                 </div>
-                                <div className="rounded-lg border border-[#e1ece0] bg-white/75 p-3">
-                                    <p className="text-[10px] font-bold tracking-wider text-[#8b998e] uppercase">Cache scope</p>
-                                    <p className="mt-1 text-sm font-semibold text-[#294231]">4 runtime layers</p>
+                                <div className="rounded-lg border border-[#e8eee9] bg-[#fbfdfb] p-2.5">
+                                    <p className="text-[9px] font-semibold text-[#8b998e]">Cache scope</p>
+                                    <p className="mt-1 text-[10px] font-semibold text-[#294231]">4 runtime layers</p>
                                 </div>
-                                <div className="min-w-0 rounded-lg border border-[#e1ece0] bg-white/75 p-3">
-                                    <p className="text-[10px] font-bold tracking-wider text-[#8b998e] uppercase">Last log update</p>
-                                    <p className="mt-1 text-sm font-semibold wrap-break-word text-[#294231]" title={formatDate(cache.lastModified)}>
+                                <div className="min-w-0 rounded-lg border border-[#e8eee9] bg-[#fbfdfb] p-2.5">
+                                    <p className="text-[9px] font-semibold text-[#8b998e]">Last log update</p>
+                                    <p
+                                        className="mt-1 text-[10px] font-semibold wrap-break-word text-[#294231]"
+                                        title={formatDate(cache.lastModified)}
+                                    >
                                         {formatDate(cache.lastModified)}
                                     </p>
                                 </div>
                             </div>
-                            <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                            <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                                 <form onSubmit={clearCache} className="w-full sm:w-auto">
                                     <button
                                         type="submit"
                                         disabled={cacheForm.processing}
-                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#173b27] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#285d3b] disabled:opacity-50 sm:w-auto"
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#188747] px-3.5 py-2 text-[10px] font-semibold text-white transition hover:bg-[#126d39] disabled:opacity-50 sm:w-auto"
                                     >
                                         <RefreshCw size={15} className={cacheForm.processing ? 'animate-spin' : ''} />{' '}
                                         {cacheForm.processing ? 'Refreshing runtime...' : 'Refresh runtime data'}
                                     </button>
                                 </form>
                                 {cacheForm.recentlySuccessful && (
-                                    <span className="flex items-center gap-1 text-xs font-semibold text-[#23824a]">
+                                    <span role="status" className="flex items-center gap-1 text-[10px] font-semibold text-[#23824a]">
                                         <Check size={14} /> Runtime cache refreshed
+                                    </span>
+                                )}
+                                {cacheForm.errors && Object.keys(cacheForm.errors).length > 0 && (
+                                    <span role="alert" className="text-[10px] font-medium text-[#ad4437]">
+                                        Could not refresh runtime data.
                                     </span>
                                 )}
                             </div>
                         </div>
                     </section>
 
-                    <section className="min-w-0 border bg-white p-4 sm:p-6 xl:col-span-2">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <span className="rounded-xl bg-[#fff1da] p-3 text-[#a86618]">
-                                    <ShieldAlert size={20} />
+                    <section className="min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-4 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:p-5 xl:col-span-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <span className="rounded-full bg-[#e8f5ec] p-2 text-[#258553]">
+                                    <ShieldAlert size={16} />
                                 </span>
                                 <div>
-                                    <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Security & system activity</p>
-                                    <h2 className="font-display mt-1 text-lg font-bold text-[#173b27] sm:text-xl">Recent system events</h2>
-                                    <p className="mt-1 text-xs text-[#829187]">Monitor access, application health, and active devices in one view.</p>
+                                    <h2 className="text-sm font-bold text-[#25372c]">Security &amp; system activity</h2>
+                                    <p className="mt-0.5 text-[9px] text-[#7d8b82]">
+                                        Monitor access, application health, and active devices in one view.
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eaf6ee] px-2 py-1 text-[8px] font-semibold text-[#287d48]">
+                                <i className="h-1.5 w-1.5 rounded-full bg-[#42a85f]" /> Live data
+                            </span>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {statCards.map(([label, value, Icon]) => (
+                                <div key={String(label)} className="rounded-lg border border-[#e8eee9] bg-[#fbfdfb] p-2.5">
+                                    <div className="flex items-center gap-1.5 text-[#328152]">
+                                        <Icon size={12} />
+                                        <span className="truncate text-[8px] font-medium text-[#738177]">{label}</span>
+                                    </div>
+                                    <p className="mt-1 text-base leading-none font-bold text-[#1c4b3d]">{value}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-4 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:p-5 xl:col-span-7">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded-full bg-[#e8f5ec] p-2.5 text-[#258553]">
+                                    <Activity size={17} />
+                                </span>
+                                <div>
+                                    <h2 className="text-sm font-bold text-[#25372c]">Recent system events</h2>
+                                    <p className="mt-0.5 text-[9px] text-[#829187]">
+                                        Monitor access, application health, and active devices in one view.
+                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="rounded-full bg-[#eaf6ee] px-3 py-1.5 text-xs font-semibold text-[#287d48]">Live data</span>
                                 <form onSubmit={clearLogs}>
                                     <button
                                         disabled={logsForm.processing}
                                         type="submit"
                                         title="Clear application logs"
                                         aria-label="Clear application logs"
-                                        className="rounded-lg p-2 text-[#b9574a] transition hover:bg-[#fbe8e5] disabled:opacity-50"
+                                        className="rounded-lg p-2 text-[#b9574a] transition hover:bg-[#fbe8e5] focus-visible:ring-2 focus-visible:ring-[#dd948d] disabled:opacity-50"
                                     >
                                         <Trash2 size={18} />
                                     </button>
@@ -434,32 +523,26 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </div>
                         </div>
 
-                        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                            {statCards.map(([label, value, Icon]) => (
-                                <div key={String(label)} className="rounded-xl border border-[#edf0eb] bg-[#f8fbf7] p-3">
-                                    <div className="flex items-center justify-between text-[#7c8d82]">
-                                        <span className="text-[10px] font-bold tracking-wider uppercase">{label}</span>
-                                        <Icon size={15} />
-                                    </div>
-                                    <p className="mt-2 text-2xl font-bold text-[#173b27]">{value}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 flex flex-col gap-2 lg:flex-row">
+                        <div className="mt-4 flex flex-col gap-2 lg:flex-row">
                             <label className="relative flex-1">
                                 <Search size={16} className="absolute top-3 left-3 text-[#8fa096]" />
                                 <input
                                     value={query}
-                                    onChange={(event) => setQuery(event.target.value)}
+                                    onChange={(event) => {
+                                        setQuery(event.target.value);
+                                        setEventPage(1);
+                                    }}
                                     placeholder="Search events, users, IPs, routes..."
-                                    className="w-full border border-[#dfe3dc] py-2.5 pr-3 pl-9 text-sm outline-none focus:border-[#2c9350]"
+                                    className="h-9 w-full rounded-lg border border-[#dfe3dc] py-2 pr-3 pl-9 text-[10px] outline-none focus:border-[#2c9350] focus:ring-2 focus:ring-[#e5f3e9]"
                                 />
                             </label>
                             <select
                                 value={severity}
-                                onChange={(event) => setSeverity(event.target.value)}
-                                className="w-full border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350] lg:w-auto"
+                                onChange={(event) => {
+                                    setSeverity(event.target.value);
+                                    setEventPage(1);
+                                }}
+                                className="h-9 w-full rounded-lg border border-[#dfe3dc] bg-white px-3 py-2 text-[10px] text-[#52665a] outline-none focus:border-[#2c9350] focus:ring-2 focus:ring-[#e5f3e9] lg:w-auto"
                             >
                                 <option value="all">All severity</option>
                                 <option value="info">Info</option>
@@ -469,8 +552,11 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </select>
                             <select
                                 value={status}
-                                onChange={(event) => setStatus(event.target.value)}
-                                className="w-full border border-[#dfe3dc] bg-white px-3 py-2.5 text-sm text-[#52665a] outline-none focus:border-[#2c9350] lg:w-auto"
+                                onChange={(event) => {
+                                    setStatus(event.target.value);
+                                    setEventPage(1);
+                                }}
+                                className="h-9 w-full rounded-lg border border-[#dfe3dc] bg-white px-3 py-2 text-[10px] text-[#52665a] outline-none focus:border-[#2c9350] focus:ring-2 focus:ring-[#e5f3e9] lg:w-auto"
                             >
                                 <option value="all">All outcomes</option>
                                 <option value="success">Success</option>
@@ -490,7 +576,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <span />
                                 </div>
                                 {filteredLogs.length ? (
-                                    filteredLogs.map((entry) => (
+                                    visibleLogs.map((entry) => (
                                         <button
                                             key={entry.id}
                                             onClick={() => setSelectedLog(entry)}
@@ -498,11 +584,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                         >
                                             <span className="flex min-w-0 items-start justify-between gap-3 md:block">
                                                 <span>
-                                                    <span
-                                                        className={`inline-flex rounded-full px-2 py-1 text-[9px] font-bold uppercase ${severityClass(entry.severity)}`}
-                                                    >
-                                                        {entry.severity}
-                                                    </span>
+                                                    <SeverityBadge severity={entry.severity} />
                                                     <span className="mt-1 block text-xs font-semibold wrap-break-word text-[#294231]">
                                                         {entry.action}
                                                     </span>
@@ -548,56 +630,82 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 )}
                             </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap justify-between gap-2 text-[11px] text-[#8a998e]">
+                        <div className="mt-3 flex flex-col gap-2 text-[9px] text-[#8a998e] sm:flex-row sm:items-center sm:justify-between">
                             <span>
-                                Showing {filteredLogs.length} of {logs.entries.length} events
+                                Showing {filteredLogs.length ? (currentEventPage - 1) * eventPageSize + 1 : 0}–
+                                {Math.min(currentEventPage * eventPageSize, filteredLogs.length)} of {filteredLogs.length} events · Updated{' '}
+                                {formatDate(logs.updatedAt)}
                             </span>
-                            <span>Updated {formatDate(logs.updatedAt)}</span>
+                            {eventPageCount > 1 && (
+                                <div className="flex items-center gap-1 self-end sm:self-auto">
+                                    <button
+                                        type="button"
+                                        disabled={currentEventPage === 1}
+                                        onClick={() => setEventPage((current) => Math.max(1, current - 1))}
+                                        className="rounded-md border border-[#dfe7e1] px-2 py-1 disabled:opacity-40"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="px-1 font-semibold text-[#287e4a]">
+                                        {currentEventPage} / {eventPageCount}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        disabled={currentEventPage >= eventPageCount}
+                                        onClick={() => setEventPage((current) => Math.min(eventPageCount, current + 1))}
+                                        className="rounded-md border border-[#dfe7e1] px-2 py-1 disabled:opacity-40"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </section>
 
-                    <section className="min-w-0 border bg-[#173b27] p-4 text-white sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-[11px] font-bold tracking-[0.18em] text-[#b8d5b8] uppercase">Security activity</p>
-                                <h2 className="font-display mt-1 text-xl font-bold">Device sessions</h2>
+                    <div className="grid content-start gap-3 xl:col-span-5">
+                        <section className="min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-4 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:p-5">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-sm font-bold text-[#25372c]">Security activity</h2>
+                                    <p className="mt-0.5 text-[9px] text-[#7d8b82]">Device sessions</p>
+                                </div>
+                                <Smartphone className="text-[#328152]" size={17} />
                             </div>
-                            <Smartphone className="text-[#b8d5b8]" size={21} />
-                        </div>
-                        <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
-                            <div className="flex items-start gap-3">
-                                <span className="rounded-lg bg-[#d6edd8] p-2 text-[#173b27]">
-                                    <Laptop size={18} />
-                                </span>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold">Application server</p>
-                                    <p className="mt-1 text-xs text-[#b8d5b8]">System-generated activity</p>
-                                    <p className="mt-4 text-xs text-[#d6e7d6]">
-                                        Sessions appear here when authentication events include device metadata.
-                                    </p>
+                            <div className="mt-3 rounded-lg border border-[#e8eee9] bg-[#fbfdfb] p-3">
+                                <div className="flex items-start gap-3">
+                                    <span className="rounded-lg bg-[#eaf6ef] p-2 text-[#258553]">
+                                        <Laptop size={16} />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-semibold text-[#294231]">Application server</p>
+                                        <p className="mt-0.5 text-[9px] text-[#7d8b82]">System-generated activity</p>
+                                        <p className="mt-2 text-[9px] leading-4 text-[#6b7d71]">
+                                            Sessions appear here when authentication events include device metadata.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="mt-5 flex items-center gap-2 text-xs text-[#b8d5b8]">
-                            <span className="h-2 w-2 rounded-full bg-[#75d28e]" /> {logs.stats.activeSessions} active session records
-                        </div>
-                    </section>
-                    <section className="min-w-0 border bg-white p-4 sm:p-6">
-                        <div className="flex items-center gap-3">
-                            <span className="rounded-xl bg-[#fbe8e5] p-3 text-[#b9574a]">
-                                <ShieldAlert size={20} />
-                            </span>
-                            <div>
-                                <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Security alerts</p>
-                                <h2 className="font-display mt-1 text-xl font-bold text-[#173b27]">Review attention items</h2>
+                            <div className="mt-3 flex items-center gap-2 text-[9px] text-[#6b7d71]">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#42a85f]" /> {logs.stats.activeSessions} active session records
                             </div>
-                        </div>
-                        <div className="mt-6 rounded-xl border border-dashed border-[#dfe3dc] p-5 text-sm text-[#718075]">
-                            {logs.stats.securityAlerts
-                                ? `${logs.stats.securityAlerts} events need review in the activity table.`
-                                : 'No suspicious activity detected in the available event window.'}
-                        </div>
-                    </section>
+                        </section>
+                        <section className="min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-4 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:p-5">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded-full bg-[#e8f5ec] p-2 text-[#258553]">
+                                    <ShieldAlert size={15} />
+                                </span>
+                                <div>
+                                    <h2 className="text-sm font-bold text-[#25372c]">Security alerts</h2>
+                                    <p className="mt-0.5 text-[9px] text-[#7d8b82]">Review attention items</p>
+                                </div>
+                            </div>
+                            <div className="mt-3 rounded-lg border border-[#e0eee3] bg-[#f1f9f3] p-3 text-[9px] leading-4 text-[#527760]">
+                                {logs.stats.securityAlerts
+                                    ? `${logs.stats.securityAlerts} events need review in the activity table.`
+                                    : 'No suspicious activity detected in the available event window.'}
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
                 {selectedLog && (
@@ -657,18 +765,26 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                     </div>
                 )}
 
-                <section className="mt-6 min-w-0 border bg-white p-4 sm:mt-8 sm:p-6">
+                <section className="mt-3 min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:mt-4 sm:p-4">
                     <div className="flex items-center gap-3">
-                        <span className="rounded-xl bg-[#eaf6ee] p-3 text-[#1f7a42]">
-                            <PencilLine size={20} />
+                        <span className="rounded-full bg-[#e8f5ec] p-2.5 text-[#258553]">
+                            <PencilLine size={16} />
                         </span>
                         <div>
-                            <p className="text-[11px] font-bold tracking-[0.18em] text-[#b06b38] uppercase">Homepage editor</p>
-                            <h2 className="font-display mt-1 text-lg font-bold text-[#173b27] sm:text-xl">Edit front page content</h2>
+                            <h2 className="text-sm font-bold text-[#25372c]">Homepage editor</h2>
+                            <p className="mt-0.5 text-[9px] text-[#7d8b82]">Edit front page content</p>
                         </div>
                     </div>
 
-                    <form onSubmit={saveHomeContent} className="mt-5 grid min-w-0 gap-3 sm:mt-6 sm:gap-4">
+                    <form onSubmit={saveHomeContent} className="mt-3 grid min-w-0 gap-3">
+                        {Object.keys(homeForm.errors).length > 0 && (
+                            <div
+                                role="alert"
+                                className="rounded-lg border border-[#f0d9d5] bg-[#fff6f4] px-3 py-2 text-[10px] font-medium text-[#ad4437]"
+                            >
+                                {Object.values(homeForm.errors)[0]}
+                            </div>
+                        )}
                         <div className="grid gap-4 md:grid-cols-2">
                             <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                                 Brand name
@@ -693,11 +809,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             <div className="flex flex-col gap-4 rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3 sm:flex-row sm:items-center">
                                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#dfe3dc] bg-white">
                                     {homeForm.data.logo ? (
-                                        <img
-                                            src={URL.createObjectURL(homeForm.data.logo)}
-                                            alt="Logo preview"
-                                            className="h-full w-full object-cover"
-                                        />
+                                        <img src={mediaPreviews.logo} alt="Logo preview" className="h-full w-full object-cover" />
                                     ) : siteSettings.logo_path && !brokenImages.logo ? (
                                         <img
                                             src={`/storage/${siteSettings.logo_path}`}
@@ -725,7 +837,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     />
                                     {mediaUploading === 'logo' && (
                                         <div className="flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving logo...
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing logo preview...
                                         </div>
                                     )}
                                     {mediaNotice?.field === 'logo' && (
@@ -766,10 +878,10 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Login background image
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-video w-full overflow-hidden rounded-lg bg-white sm:aspect-16/7">
+                                <div className="mb-2 h-14 w-full overflow-hidden rounded-lg bg-white sm:h-16">
                                     {homeForm.data.login_background ? (
                                         <img
-                                            src={URL.createObjectURL(homeForm.data.login_background)}
+                                            src={mediaPreviews.login_background}
                                             alt="Login background preview"
                                             className="h-full w-full object-cover"
                                         />
@@ -799,7 +911,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 />
                                 {mediaUploading === 'login_background' && (
                                     <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving background image...
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing background preview...
                                     </div>
                                 )}
                                 {mediaNotice?.field === 'login_background' && (
@@ -842,20 +954,12 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                         <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
                             Hero image or video
                             <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-3 aspect-16/7 w-full overflow-hidden rounded-lg bg-white sm:aspect-16/5">
+                                <div className="mb-2 h-14 w-full overflow-hidden rounded-lg bg-white sm:h-16">
                                     {homeForm.data.hero_media ? (
                                         homeForm.data.hero_media.type.startsWith('video/') ? (
-                                            <video
-                                                src={URL.createObjectURL(homeForm.data.hero_media)}
-                                                controls
-                                                className="h-full w-full object-cover"
-                                            />
+                                            <video src={mediaPreviews.hero_media} controls className="h-full w-full object-cover" />
                                         ) : (
-                                            <img
-                                                src={URL.createObjectURL(homeForm.data.hero_media)}
-                                                alt="Hero media preview"
-                                                className="h-full w-full object-cover"
-                                            />
+                                            <img src={mediaPreviews.hero_media} alt="Hero media preview" className="h-full w-full object-cover" />
                                         )
                                     ) : siteSettings.hero_media_path && !brokenImages.hero_media ? (
                                         siteSettings.hero_media_type === 'video' ? (
@@ -892,7 +996,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                 />
                                 {mediaUploading === 'hero_media' && (
                                     <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading and saving hero media...
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing hero media preview...
                                     </div>
                                 )}
                                 {mediaNotice?.field === 'hero_media' && (
@@ -1029,16 +1133,20 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             <button
                                 type="submit"
                                 disabled={homeForm.processing}
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#173b27] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#285d3b] disabled:opacity-50 sm:w-auto"
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#188747] px-3.5 py-2 text-[10px] font-semibold text-white hover:bg-[#126d39] disabled:opacity-50 sm:w-auto"
                             >
                                 <Check size={15} /> {homeForm.processing ? 'Saving...' : 'Save homepage content'}
                             </button>
-                            {homeForm.recentlySuccessful && <span className="text-xs font-semibold text-[#23824a]">Saved</span>}
+                            {homeForm.recentlySuccessful && (
+                                <span role="status" className="text-[10px] font-semibold text-[#23824a]">
+                                    Homepage content saved successfully.
+                                </span>
+                            )}
                         </div>
                     </form>
 
-                    <div className="mt-6 grid gap-4 md:grid-cols-2">
-                        <div className="rounded-xl border border-[#edf0eb] bg-[#f7faf6] p-4">
+                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                        <div className="rounded-xl border border-[#e4ebe6] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.035)]">
                             <div className="flex items-center gap-3">
                                 <span className="rounded-lg bg-white p-2 text-[#1f7a42]">
                                     <Tag size={18} />
@@ -1048,13 +1156,13 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <h3 className="font-display text-lg font-bold text-[#173b27]">Edit category structure</h3>
                                 </div>
                             </div>
-                            <p className="mt-3 text-sm leading-6 text-[#6a7c70]">
+                            <p className="mt-2 text-[10px] leading-4 text-[#6a7c70]">
                                 Review all category entries, update their names and hierarchy, and reorganize your storefront layout.
                             </p>
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            <div className="mt-3 flex flex-wrap gap-2">
                                 <Link
                                     href={route('admin.categories')}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-[#173b27] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#285d3b]"
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#188747] px-2.5 py-1.5 text-[9px] font-semibold text-white hover:bg-[#126d39]"
                                 >
                                     Edit categories
                                 </Link>
@@ -1062,7 +1170,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <button
                                         type="submit"
                                         disabled={categoriesForm.processing}
-                                        className="inline-flex items-center gap-2 rounded-lg border border-[#eccac3] px-3.5 py-2 text-sm font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#eccac3] px-2.5 py-1.5 text-[9px] font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
                                     >
                                         <Trash2 size={15} /> Delete all categories
                                     </button>
@@ -1070,7 +1178,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-[#edf0eb] bg-[#f7faf6] p-4">
+                        <div className="rounded-xl border border-[#e4ebe6] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.035)]">
                             <div className="flex items-center gap-3">
                                 <span className="rounded-lg bg-white p-2 text-[#1f7a42]">
                                     <Warehouse size={18} />
@@ -1080,13 +1188,13 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <h3 className="font-display text-lg font-bold text-[#173b27]">Edit product catalog</h3>
                                 </div>
                             </div>
-                            <p className="mt-3 text-sm leading-6 text-[#6a7c70]">
+                            <p className="mt-2 text-[10px] leading-4 text-[#6a7c70]">
                                 Manage product listings, approval states, and pricing details from one place before customers browse the storefront.
                             </p>
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            <div className="mt-3 flex flex-wrap gap-2">
                                 <Link
                                     href={route('admin.products')}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-[#173b27] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#285d3b]"
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#188747] px-2.5 py-1.5 text-[9px] font-semibold text-white hover:bg-[#126d39]"
                                 >
                                     Edit products
                                 </Link>
@@ -1094,7 +1202,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <button
                                         type="submit"
                                         disabled={productsForm.processing}
-                                        className="inline-flex items-center gap-2 rounded-lg border border-[#eccac3] px-3.5 py-2 text-sm font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#eccac3] px-2.5 py-1.5 text-[9px] font-semibold text-[#a23b2d] hover:bg-[#fbe8e5] disabled:opacity-50"
                                     >
                                         <Trash2 size={15} /> Delete all products
                                     </button>
@@ -1102,7 +1210,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-[#f0ddd8] bg-[#fffaf8] p-4">
+                        <div className="rounded-xl border border-[#f0ddd8] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.035)]">
                             <div className="flex items-center gap-3">
                                 <span className="rounded-lg bg-white p-2 text-[#b9574a]">
                                     <Trash2 size={18} />
@@ -1112,10 +1220,10 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                                     <h3 className="font-display text-lg font-bold text-[#173b27]">Clear order history</h3>
                                 </div>
                             </div>
-                            <p className="mt-3 text-sm leading-6 text-[#6a7c70]">
+                            <p className="mt-2 text-[10px] leading-4 text-[#6a7c70]">
                                 Permanently remove every active and archived order from the marketplace database.
                             </p>
-                            <form onSubmit={clearOrders} className="mt-4">
+                            <form onSubmit={clearOrders} className="mt-3">
                                 <button
                                     type="submit"
                                     disabled={ordersForm.processing}

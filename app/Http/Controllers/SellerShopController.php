@@ -20,6 +20,8 @@ class SellerShopController extends Controller
                 'id' => $shop->id,
                 'name' => $shop->name,
                 'slug' => $shop->slug,
+                'logo' => $shop->logo ? '/storage/'.$shop->logo : null,
+                'banner' => $shop->banner ? '/storage/'.$shop->banner : null,
                 'description' => $shop->description,
                 'gcash_enabled' => (bool) $shop->gcash_enabled,
                 'gcash_account_name' => $shop->gcash_account_name,
@@ -28,7 +30,6 @@ class SellerShopController extends Controller
             ],
         ]);
     }
-
     public function update(Request $request, ImageOptimizationService $images)
     {
         $shop = $this->shopFor($request);
@@ -40,6 +41,7 @@ class SellerShopController extends Controller
             'gcash_enabled' => ['nullable', 'boolean'],
             'gcash_account_name' => ['nullable', 'string', 'max:255'],
             'gcash_mobile_number' => ['nullable', 'string', 'max:50'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'gcash_qr_code' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
         ]);
 
@@ -58,6 +60,14 @@ class SellerShopController extends Controller
             }
 
             $shop->gcash_qr_code = $images->store($request->file('gcash_qr_code'), 'gcash-qr', ['max_dimension' => config('images.logo_max_dimension')]);
+        }
+
+        if ($request->hasFile('logo')) {
+            if ($shop->logo) {
+                Storage::disk('public')->delete($shop->logo);
+            }
+
+            $shop->logo = $images->store($request->file('logo'), 'shop-logos', ['max_dimension' => config('images.profile_max_dimension')]);
         }
 
         if ($shop->gcash_enabled) {

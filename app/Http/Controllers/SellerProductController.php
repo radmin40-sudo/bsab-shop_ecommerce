@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductView;
 use App\Services\ImageOptimizationService;
 use App\Services\ProductVariantService;
 use Illuminate\Http\RedirectResponse;
@@ -30,10 +31,117 @@ class SellerProductController extends Controller
             ->latest()
             ->get();
         $products->each(fn (Product $product) => $product->append('product_options'));
+        $productIds = $products->pluck('id');
+        $now = now();
+        $chartStart = $now->copy()->startOfDay()->subDays(364);
+        $previousPeriodStart = $now->copy()->subMonth()->startOfMonth();
+        $previousPeriodEnd = $now->copy()->subMonth()->endOfMonth();
+        $viewsByDay = ProductView::query()
+            ->whereIn('product_id', $productIds)
+            ->whereBetween('viewed_at', [$chartStart, $now])
+            ->selectRaw('DATE(viewed_at) as day, COUNT(*) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day');
+        $salesByDay = $shop->orderItems()
+            ->whereBetween('created_at', [$chartStart, $now])
+            ->selectRaw('DATE(created_at) as day, SUM(quantity) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day');
+        $dailyPerformance = collect(range(0, 364))->map(function (int $offset) use ($chartStart, $viewsByDay, $salesByDay, $products) {
+            $day = $chartStart->copy()->addDays($offset);
+
+            return [
+                'date' => $day->format('Y-m-d'),
+                'label' => $day->format('M j'),
+                'views' => (int) ($viewsByDay->get($day->toDateString()) ?? 0),
+                'sales' => (int) ($salesByDay->get($day->toDateString()) ?? 0),
+                'stock' => (int) $products->sum('stock_quantity'),
+            ];
+        });
+        $periodChange = function (int|float $current, int|float $previous): float {
+            if ($previous === 0) {
+                return $current === 0 ? 0.0 : 100.0;
+            }
+
+            return round((($current - $previous) / $previous) * 100, 1);
+        };
+        $previousPeriodProducts = $shop->products()
+            ->whereBetween('created_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->count();
+        $currentPeriodProducts = $shop->products()
+            ->whereBetween('created_at', [$now->copy()->startOfMonth(), $now])
+            ->count();
+        $previousPeriodPublished = $shop->products()
+            ->where('status', 'published')
+            ->whereBetween('updated_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->count();
+        $currentPeriodPublished = $shop->products()
+            ->where('status', 'published')
+            ->whereBetween('updated_at', [$now->copy()->startOfMonth(), $now])
+            ->count();
+        $previousPeriodLowStock = $shop->products()
+            ->where('stock_quantity', '<', 5)
+            ->whereBetween('updated_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->count();
+        $currentPeriodLowStock = $shop->products()
+            ->where('stock_quantity', '<', 5)
+            ->whereBetween('updated_at', [$now->copy()->startOfMonth(), $now])
+            ->count();
+        $previousPeriodPending = $shop->products()
+            ->where('status', 'pending')
+            ->whereBetween('updated_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->count();
+        $currentPeriodPending = $shop->products()
+            ->where('status', 'pending')
+            ->whereBetween('updated_at', [$now->copy()->startOfMonth(), $now])
+            ->count();
+        $currentViews = (int) ProductView::query()
+            ->whereIn('product_id', $productIds)
+            ->whereBetween('viewed_at', [$now->copy()->startOfMonth(), $now])
+            ->count();
+        $previousViews = (int) ProductView::query()
+            ->whereIn('product_id', $productIds)
+            ->whereBetween('viewed_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->count();
+        $currentSales = (int) $shop->orderItems()
+            ->whereBetween('created_at', [$now->copy()->startOfMonth(), $now])
+            ->sum('quantity');
+        $previousSales = (int) $shop->orderItems()
+            ->whereBetween('created_at', [$previousPeriodStart, $previousPeriodEnd])
+            ->sum('quantity');
+        $totalSales = (int) $shop->orderItems()->sum('quantity');
+        $inventoryValue = (float) $products->sum(fn (Product $product) => $product->stock_quantity * (float) ($product->sale_price ?: $product->base_price));
+        $statusCounts = $products->countBy(fn (Product $product) => strtolower((string) $product->status));
+        $viewsAllTime = (int) ProductView::query()->whereIn('product_id', $productIds)->count();
+        $ordersWithProducts = $shop->orderItems()->distinct('order_id')->count('order_id');
+        $conversionRate = $viewsAllTime > 0 ? round(($ordersWithProducts / $viewsAllTime) * 100, 1) : 0;
 
         return Inertia::render('seller/products', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'monitoring' => [
+                'totalProducts' => $products->count(),
+                'published' => (int) $statusCounts->get('published', 0),
+                'lowStock' => $products->where('stock_quantity', '<', 5)->count(),
+                'pendingReview' => (int) $statusCounts->get('pending', 0),
+                'views' => $viewsAllTime,
+                'viewsChange' => $periodChange($currentViews, $previousViews),
+                'sales' => $totalSales,
+                'salesChange' => $periodChange($currentSales, $previousSales),
+                'inventoryValue' => round($inventoryValue, 2),
+                'conversionRate' => $conversionRate,
+                'productChange' => $periodChange($currentPeriodProducts, $previousPeriodProducts),
+                'publishedChange' => $periodChange($currentPeriodPublished, $previousPeriodPublished),
+                'lowStockChange' => $periodChange($currentPeriodLowStock, $previousPeriodLowStock),
+                'pendingReviewChange' => $periodChange($currentPeriodPending, $previousPeriodPending),
+                'dailyPerformance' => $dailyPerformance,
+                'statusBreakdown' => [
+                    ['name' => 'Published', 'value' => (int) $statusCounts->get('published', 0), 'color' => '#38a86b'],
+                    ['name' => 'Pending review', 'value' => (int) $statusCounts->get('pending', 0), 'color' => '#f0b33c'],
+                    ['name' => 'Draft', 'value' => (int) $statusCounts->get('draft', 0), 'color' => '#cbded2'],
+                    ['name' => 'Rejected', 'value' => (int) $statusCounts->get('rejected', 0), 'color' => '#ef5a50'],
+                ],
+            ],
         ]);
     }
 

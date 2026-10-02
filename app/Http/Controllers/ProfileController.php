@@ -26,11 +26,12 @@ class ProfileController extends Controller
     public function update(Request $request, ImageOptimizationService $images): RedirectResponse
     {
         $user = $request->user();
+        $isSeller = $user->hasRole('seller');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('images.max_upload_kb')],
+            'phone' => [$isSeller ? 'required' : 'nullable', 'string', 'max:50'],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.(($isSeller || $user->hasRole('admin')) ? 2048 : config('images.max_upload_kb'))],
             'address' => ['nullable', 'array'],
             'address.full_name' => ['required_with:address', 'string', 'max:255'],
             'address.phone' => ['required_with:address', 'string', 'max:50'],
