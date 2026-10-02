@@ -79,15 +79,15 @@ type Product = {
 
 interface MobileProductDetailProps {
     product: Product;
-    variantOptions?: ProductOption[];
-    selectedValues?: Record<number, number>;
-    chooseOption?: (optionId: number, valueId: number) => void;
-    getAvailableValuesForOption?: (option: ProductOption) => ProductOptionValue[];
-    matchingVariant?: ProductVariant | null;
-    price?: number;
-    originalPrice?: number | null;
-    discountPercent?: number | null;
-    stock?: number;
+    variantOptions: ProductOption[];
+    selectedValues: Record<number, number>;
+    chooseOption: (optionId: number, valueId: number) => void;
+    getAvailableValuesForOption: (option: ProductOption) => ProductOptionValue[];
+    matchingVariant: ProductVariant | null;
+    price: number;
+    originalPrice: number | null;
+    discountPercent: number | null;
+    stock: number;
     ratingAverage?: number;
     reviewCount?: number;
 }
@@ -121,55 +121,17 @@ const COLOR_HEX_MAP: Record<string, string> = {
     gold: '#d97706',
 };
 
-function variantAssignments(variant: ProductVariant): ProductVariantOptionValue[] {
-    return variant.optionValues ?? variant.option_values ?? [];
-}
-
-function assignmentOptionValue(assignment: ProductVariantOptionValue) {
-    return assignment.optionValue ?? assignment.option_value;
-}
-
-function variantHasOptionValue(variant: ProductVariant, option: ProductOption, valueId: number): boolean {
-    return variantAssignments(variant).some((assignment) => {
-        if (assignment.product_option_value_id !== valueId) {
-            return false;
-        }
-
-        const optionId = assignmentOptionValue(assignment)?.option?.id;
-        return optionId === option.id || option.values.some((value) => value.id === valueId);
-    });
-}
-
-function matchesMobileSelection(variant: ProductVariant, options: ProductOption[], selectedValues: Record<number, number>): boolean {
-    return options.every((option) => {
-        const selectedValueId = selectedValues[option.id];
-        return !selectedValueId || variantHasOptionValue(variant, option, selectedValueId);
-    });
-}
-
-function initialMobileSelection(options: ProductOption[], variants: ProductVariant[]): Record<number, number> {
-    const selected: Record<number, number> = {};
-
-    for (const option of options) {
-        const firstAvailable = option.values.find((value) =>
-            variants.some((variant) => variant.stock_quantity > 0 && variant.is_active !== false && variantHasOptionValue(variant, option, value.id)),
-        );
-
-        if (firstAvailable) {
-            selected[option.id] = firstAvailable.id;
-        }
-    }
-
-    return selected;
-}
-
 export default function MobileProductDetail({
     product,
-    matchingVariant: pageMatchingVariant,
-    price: propPrice,
-    originalPrice: propOriginalPrice,
-    discountPercent: propDiscountPercent,
-    stock: propStock,
+    variantOptions,
+    selectedValues,
+    chooseOption,
+    getAvailableValuesForOption,
+    matchingVariant,
+    price,
+    originalPrice,
+    discountPercent,
+    stock,
     ratingAverage: propRatingAverage,
     reviewCount: propReviewCount,
 }: MobileProductDetailProps) {
@@ -182,44 +144,9 @@ export default function MobileProductDetail({
     const [toastType, setToastType] = useState<'success' | 'error'>('success');
     const [showSizeGuide, setShowSizeGuide] = useState(false);
     const [showProductDetails, setShowProductDetails] = useState(false);
-    const productVariants = product.variants ?? [];
-    const variantOptions = useMemo(
-        () =>
-            (product.options ?? []).filter((option) =>
-                productVariants.some((variant) =>
-                    variantAssignments(variant).some((assignment) => option.values.some((value) => value.id === assignment.product_option_value_id)),
-                ),
-            ),
-        [product.options, productVariants],
-    );
-    const [selectedValues, setSelectedValues] = useState<Record<number, number>>(() => initialMobileSelection(variantOptions, productVariants));
-    const matchingVariant = useMemo(() => {
-        if (variantOptions.length === 0) {
-            return pageMatchingVariant ?? productVariants.find((variant) => variant.is_active !== false) ?? null;
-        }
-
-        return (
-            productVariants.find((variant) =>
-                variantOptions.every((option) => {
-                    const selectedValueId = selectedValues[option.id];
-                    return selectedValueId !== undefined && variantHasOptionValue(variant, option, selectedValueId);
-                }),
-            ) ?? null
-        );
-    }, [pageMatchingVariant, productVariants, selectedValues, variantOptions]);
-
-    const availableValuesForOption = (option: ProductOption) =>
-        option.values.filter((value) => {
-            const candidateSelection = { ...selectedValues, [option.id]: value.id };
-            return productVariants.some(
-                (variant) =>
-                    variant.stock_quantity > 0 && variant.is_active !== false && matchesMobileSelection(variant, variantOptions, candidateSelection),
-            );
-        });
-
     const chooseMobileOption = (optionId: number, valueId: number) => {
-        setSelectedValues((current) => ({ ...current, [optionId]: valueId }));
         setToastMessage(null);
+        chooseOption(optionId, valueId);
     };
 
     // 1. Data-driven images: ONLY from database, no hardcoded fallbacks
@@ -232,25 +159,14 @@ export default function MobileProductDetail({
     const mainImageSrc = productImages[activeImageIndex] ?? productImages[0] ?? (matchingVariant?.image ? imageUrl(matchingVariant.image) : null);
 
     // 2. Data-driven prices: from matchingVariant or product
-    const effectivePrice =
-        propPrice ?? (matchingVariant?.price ? Number(matchingVariant.price) : Number(product.sale_price ?? product.base_price ?? 0));
+    const effectivePrice = price;
 
-    const effectiveOriginalPrice =
-        propOriginalPrice !== undefined
-            ? propOriginalPrice
-            : product.sale_price && Number(product.base_price) > effectivePrice
-              ? Number(product.base_price)
-              : null;
+    const effectiveOriginalPrice = originalPrice;
 
-    const effectiveDiscountPercent =
-        propDiscountPercent !== undefined
-            ? propDiscountPercent
-            : effectiveOriginalPrice && effectivePrice < effectiveOriginalPrice
-              ? Math.round(((effectiveOriginalPrice - effectivePrice) / effectiveOriginalPrice) * 100)
-              : null;
+    const effectiveDiscountPercent = discountPercent;
 
     // 3. Stock
-    const effectiveStock = propStock !== undefined ? propStock : matchingVariant ? matchingVariant.stock_quantity : product.stock_quantity;
+    const effectiveStock = stock;
     const isOutOfStock = effectiveStock < 1;
 
     // 4. Rating & Reviews: ONLY if metrics exist and has reviews/rating
@@ -529,7 +445,7 @@ export default function MobileProductDetail({
                 {variantOptions.length > 0 && (
                     <div className="mt-4 space-y-4 px-4">
                         {variantOptions.map((option) => {
-                            const availableValues = availableValuesForOption(option);
+                            const availableValues = getAvailableValuesForOption(option);
 
                             if (!availableValues.length) {
                                 return null;
