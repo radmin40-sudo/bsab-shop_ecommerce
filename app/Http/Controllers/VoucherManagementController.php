@@ -98,7 +98,7 @@ class VoucherManagementController extends Controller
                 'code' => $data['code'] ?: $this->generateCode(),
                 'seller_id' => $shop?->id ?? ($data['seller_id'] ?? null),
             ]);
-            $this->syncTargets($voucher, $data, $shop);
+            $this->syncTargets($voucher, $data, $shop, false);
         });
 
         return back()->with('success', 'Voucher created successfully.');
@@ -214,7 +214,7 @@ class VoucherManagementController extends Controller
         return $data;
     }
 
-    private function syncTargets(Voucher $voucher, array $data, ?Shop $shop): void
+    private function syncTargets(Voucher $voucher, array $data, ?Shop $shop, bool $clearUntargeted = true): void
     {
         $productIds = $data['product_ids'];
         $variantIds = $data['variant_ids'];
@@ -226,6 +226,18 @@ class VoucherManagementController extends Controller
                 ->where('products.shop_id', $shop->id)->whereIn('product_variants.id', $variantIds)->pluck('product_variants.id')->all();
             abort_if(count($variantIds) !== count($data['variant_ids']), 403, 'You can only select variants from your products.');
             $sellerIds = [$shop->id];
+        }
+
+        if (! $clearUntargeted) {
+            match ($data['apply_to']) {
+                'products' => $voucher->products()->sync($productIds),
+                'categories' => $voucher->categories()->sync($data['category_ids']),
+                'variants' => $voucher->variants()->sync($variantIds),
+                'sellers' => $voucher->sellers()->sync($sellerIds),
+                default => null,
+            };
+
+            return;
         }
 
         $voucher->products()->sync($productIds);

@@ -148,6 +148,36 @@ class VoucherManagementTest extends TestCase
         $voucher = Voucher::where('code', 'SELLER100')->firstOrFail();
         $this->assertSame($shop->id, $voucher->seller_id);
         $this->assertSame([$owned->id], $voucher->products()->pluck('products.id')->all());
+        $this->assertDatabaseMissing('voucher_sellers', ['voucher_id' => $voucher->id]);
+    }
+
+    public function test_seller_can_create_all_products_voucher_without_writing_target_pivots(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create();
+        $seller->assignRole('seller');
+        $shop = $this->makeShop($seller, 'seller-all-voucher-shop');
+
+        $this->actingAs($seller)
+            ->from('/seller/vouchers')
+            ->post(route('seller.vouchers.store'), [
+                'name' => 'All products offer',
+                'code' => 'ALLPRODUCTS10',
+                'type' => 'fixed',
+                'discount_value' => 10,
+                'minimum_spend' => 0,
+                'apply_to' => 'all',
+                'customer_eligibility' => 'all',
+                'is_active' => false,
+            ])
+            ->assertRedirect('/seller/vouchers');
+
+        $voucher = Voucher::where('code', 'ALLPRODUCTS10')->firstOrFail();
+        $this->assertSame($shop->id, $voucher->seller_id);
+        $this->assertDatabaseMissing('voucher_products', ['voucher_id' => $voucher->id]);
+        $this->assertDatabaseMissing('voucher_categories', ['voucher_id' => $voucher->id]);
+        $this->assertDatabaseMissing('voucher_variants', ['voucher_id' => $voucher->id]);
+        $this->assertDatabaseMissing('voucher_sellers', ['voucher_id' => $voucher->id]);
     }
 
     private function makeShop(User $user, string $slug): Shop
