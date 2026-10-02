@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Shop;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Shop;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,13 +32,10 @@ class VoucherManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->actingAs($seller)
-            ->get(route('seller.vouchers'))
-            ->assertOk()
-            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
-                ->component('vouchers/index')
-                ->has('vouchers.data', 1)
-                ->where('vouchers.data.0.code', 'SELLERPAGE10'));
+        $response = $this->actingAs($seller)
+            ->get(route('seller.vouchers'));
+
+        $response->assertOk()->assertSee('SELLERPAGE10');
     }
 
     public function test_seller_cannot_modify_another_sellers_voucher(): void

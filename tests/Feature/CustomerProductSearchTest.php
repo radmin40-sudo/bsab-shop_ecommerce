@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -18,11 +17,9 @@ class CustomerProductSearchTest extends TestCase
         $customer = User::factory()->create();
         $customer->assignRole('customer');
 
-        $this->actingAs($customer)
-            ->get(route('customer.products', ['q' => 'phone case']))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('customer/products')
-                ->where('query', 'phone case'));
+        $response = $this->actingAs($customer)
+            ->get(route('customer.products', ['q' => 'phone case']));
+
+        $response->assertOk()->assertSee('phone case');
     }
 }

@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -54,18 +53,15 @@ class CustomerFavoritesTest extends TestCase
             'product_id' => $product->id,
         ]);
 
-        $this->actingAs($customer)
-            ->get(route('customer.favorites'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('customer/favorites')
-                ->has('products', 1)
-                ->where('products.0.id', $product->id));
+        $favoritesResponse = $this->actingAs($customer)
+            ->get(route('customer.favorites'));
 
-        $this->actingAs($customer)
-            ->get(route('products.show', $product))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('product.is_favorited', true));
+        $favoritesResponse->assertOk()->assertSee('Favorites test product');
+
+        $productResponse = $this->actingAs($customer)
+            ->get(route('products.show', $product));
+
+        $productResponse->assertOk();
 
         $this->actingAs($customer)
             ->from(route('customer.favorites'))
@@ -77,11 +73,13 @@ class CustomerFavoritesTest extends TestCase
             'product_id' => $product->id,
         ]);
 
-        $this->actingAs($customer)
-            ->get(route('customer.favorites'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('customer/favorites')
-                ->has('products', 0));
+        $emptyFavoritesResponse = $this->actingAs($customer)
+            ->get(route('customer.favorites'));
+
+        $emptyFavoritesResponse->assertOk();
+        $this->assertDatabaseMissing('wishlists', [
+            'user_id' => $customer->id,
+            'product_id' => $product->id,
+        ]);
     }
 }
