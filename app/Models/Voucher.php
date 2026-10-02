@@ -13,7 +13,7 @@ class Voucher extends Model
         'seller_id', 'name', 'code', 'type', 'discount_value', 'minimum_spend', 'maximum_discount',
         'apply_to', 'customer_eligibility', 'starts_at', 'expires_at', 'total_usage_limit',
         'per_customer_usage_limit', 'claim_limit', 'requires_claim', 'free_shipping', 'is_active',
-        'description', 'terms',
+        'description', 'terms', 'value',
     ];
 
     protected function casts(): array

@@ -9,6 +9,7 @@ use App\Models\Voucher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -90,11 +91,12 @@ class VoucherManagementController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validatedData($request);
+        $attributes = $this->withLegacyDiscountValue($data);
         $shop = $request->user()->hasRole('admin') ? null : Shop::where('user_id', $request->user()->id)->firstOrFail();
 
-        DB::transaction(function () use ($data, $shop) {
+        DB::transaction(function () use ($data, $attributes, $shop) {
             $voucher = Voucher::create([
-                ...$data,
+                ...$attributes,
                 'code' => $data['code'] ?: $this->generateCode(),
                 'seller_id' => $shop?->id ?? ($data['seller_id'] ?? null),
             ]);
@@ -109,10 +111,11 @@ class VoucherManagementController extends Controller
         $shop = $request->user()->hasRole('admin') ? null : Shop::where('user_id', $request->user()->id)->firstOrFail();
         abort_if($shop && $voucher->seller_id !== $shop->id, 403);
         $data = $this->validatedData($request, $voucher);
+        $attributes = $this->withLegacyDiscountValue($data);
 
-        DB::transaction(function () use ($voucher, $data, $shop) {
+        DB::transaction(function () use ($voucher, $data, $attributes, $shop) {
             $voucher->update([
-                ...$data,
+                ...$attributes,
                 'code' => $data['code'] ?: $voucher->code,
                 'seller_id' => $shop?->id ?? ($data['seller_id'] ?? null),
             ]);
@@ -210,6 +213,15 @@ class VoucherManagementController extends Controller
         $data['category_ids'] ??= [];
         $data['variant_ids'] ??= [];
         $data['seller_ids'] ??= [];
+
+        return $data;
+    }
+
+    private function withLegacyDiscountValue(array $data): array
+    {
+        if (Schema::hasColumn('vouchers', 'value')) {
+            $data['value'] = $data['discount_value'];
+        }
 
         return $data;
     }

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -194,6 +195,52 @@ class VoucherManagementTest extends TestCase
         $this->assertDatabaseMissing('voucher_categories', ['voucher_id' => $voucher->id]);
         $this->assertDatabaseMissing('voucher_variants', ['voucher_id' => $voucher->id]);
         $this->assertDatabaseMissing('voucher_sellers', ['voucher_id' => $voucher->id]);
+    }
+
+    public function test_voucher_create_and_update_support_legacy_required_value_column(): void
+    {
+        Role::findOrCreate('seller', 'web');
+        $seller = User::factory()->create();
+        $seller->assignRole('seller');
+        $shop = $this->makeShop($seller, 'seller-legacy-voucher-shop');
+
+        Schema::table('vouchers', function ($table) {
+            $table->decimal('value', 12, 2);
+        });
+
+        $this->actingAs($seller)
+            ->from('/seller/vouchers')
+            ->post(route('seller.vouchers.store'), [
+                'name' => 'Legacy schema offer',
+                'code' => 'LEGACYVALUE10',
+                'type' => 'fixed',
+                'discount_value' => 10,
+                'minimum_spend' => 0,
+                'apply_to' => 'all',
+                'customer_eligibility' => 'all',
+                'is_active' => true,
+            ])
+            ->assertRedirect('/seller/vouchers');
+
+        $voucher = Voucher::where('code', 'LEGACYVALUE10')->firstOrFail();
+        $this->assertEquals(10, $voucher->value);
+
+        $this->actingAs($seller)
+            ->from('/seller/vouchers')
+            ->patch(route('seller.vouchers.update', $voucher), [
+                'name' => 'Legacy schema offer',
+                'code' => 'LEGACYVALUE10',
+                'type' => 'fixed',
+                'discount_value' => 25,
+                'minimum_spend' => 0,
+                'apply_to' => 'all',
+                'customer_eligibility' => 'all',
+                'is_active' => true,
+            ])
+            ->assertRedirect('/seller/vouchers');
+
+        $this->assertEquals(25, $voucher->fresh()->value);
+        $this->assertSame($shop->id, $voucher->fresh()->seller_id);
     }
 
     private function makeShop(User $user, string $slug): Shop
