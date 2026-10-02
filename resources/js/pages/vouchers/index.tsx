@@ -32,7 +32,7 @@ type Voucher = {
     categories: { id: number; name: string }[];
     sellers: { id: number; name: string }[];
     variants: { id: number; name: string; sku: string; stock_quantity: number; product_id: number }[];
-    variants: { id: number; name: string; sku: string; stock_quantity: number; product_id: number }[];
+    terms: string | null;
 };
 type PageProps = {
     vouchers: {
@@ -100,6 +100,7 @@ const emptyForm: FormData = {
     variant_ids: [],
     seller_ids: [],
 };
+const singleUseTerms = 'One use per customer. Valid until the expiry date.';
 
 function money(value: string | number) {
     return `₱${Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -147,6 +148,7 @@ export default function VoucherManagement() {
             starts_at: voucher.starts_at?.slice(0, 16) ?? '',
             expires_at: voucher.expires_at?.slice(0, 16) ?? '',
             is_active: voucher.is_active,
+            terms: voucher.terms ?? '',
             product_ids: voucher.products.map((item) => item.id),
             category_ids: voucher.categories.map((item) => item.id),
             seller_ids: voucher.sellers.map((item) => item.id),
@@ -739,15 +741,13 @@ export default function VoucherManagement() {
                                         className="mt-1.5 w-full rounded-lg border border-[#dcebe0] bg-white px-3 py-2.5 placeholder:text-[#9aaa9f]"
                                     />
                                 </label>
-                                <label className="text-sm font-semibold sm:col-span-2">
-                                    Terms and conditions
-                                    <textarea
-                                        value={form.data.terms}
-                                        onChange={(e) => form.setData('terms', e.target.value)}
-                                        placeholder="Example: One use per customer. Valid until the expiry date."
-                                        rows={2}
-                                        className="mt-1.5 w-full rounded-lg border border-[#dcebe0] bg-white px-3 py-2.5 placeholder:text-[#9aaa9f]"
+                                <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.data.terms === singleUseTerms}
+                                        onChange={(e) => form.setData('terms', e.target.checked ? singleUseTerms : '')}
                                     />
+                                    One use per customer. Valid until the expiry date.
                                 </label>
                             </div>
                             <footer className="flex justify-end gap-2 border-t border-[#dcebe0] bg-white px-5 py-4 sm:px-7">
