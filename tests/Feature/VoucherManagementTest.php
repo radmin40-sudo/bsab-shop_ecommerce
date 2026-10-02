@@ -206,6 +206,7 @@ class VoucherManagementTest extends TestCase
 
         Schema::table('vouchers', function ($table) {
             $table->decimal('value', 12, 2);
+            $table->string('created_by_role');
         });
 
         $this->actingAs($seller)
@@ -224,6 +225,7 @@ class VoucherManagementTest extends TestCase
 
         $voucher = Voucher::where('code', 'LEGACYVALUE10')->firstOrFail();
         $this->assertEquals(10, $voucher->value);
+        $this->assertSame('seller', $voucher->created_by_role);
 
         $this->actingAs($seller)
             ->from('/seller/vouchers')

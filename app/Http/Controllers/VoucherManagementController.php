@@ -91,7 +91,7 @@ class VoucherManagementController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validatedData($request);
-        $attributes = $this->withLegacyDiscountValue($data);
+        $attributes = $this->withLegacyVoucherColumns($data, $request);
         $shop = $request->user()->hasRole('admin') ? null : Shop::where('user_id', $request->user()->id)->firstOrFail();
 
         DB::transaction(function () use ($data, $attributes, $shop) {
@@ -111,7 +111,7 @@ class VoucherManagementController extends Controller
         $shop = $request->user()->hasRole('admin') ? null : Shop::where('user_id', $request->user()->id)->firstOrFail();
         abort_if($shop && $voucher->seller_id !== $shop->id, 403);
         $data = $this->validatedData($request, $voucher);
-        $attributes = $this->withLegacyDiscountValue($data);
+        $attributes = $this->withLegacyVoucherColumns($data, $request);
 
         DB::transaction(function () use ($voucher, $data, $attributes, $shop) {
             $voucher->update([
@@ -217,10 +217,13 @@ class VoucherManagementController extends Controller
         return $data;
     }
 
-    private function withLegacyDiscountValue(array $data): array
+    private function withLegacyVoucherColumns(array $data, Request $request): array
     {
         if (Schema::hasColumn('vouchers', 'value')) {
             $data['value'] = $data['discount_value'];
+        }
+        if (Schema::hasColumn('vouchers', 'created_by_role')) {
+            $data['created_by_role'] = $request->user()->hasRole('admin') ? 'admin' : 'seller';
         }
 
         return $data;
