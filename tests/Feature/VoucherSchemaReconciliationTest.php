@@ -27,12 +27,14 @@ class VoucherSchemaReconciliationTest extends TestCase
             $table->dropConstrainedForeignId('seller_id');
             $table->dropSoftDeletes();
         });
+        Schema::table('voucher_products', fn ($table) => $table->dropColumn('updated_at'));
 
         $migration = require database_path('migrations/2026_10_02_000000_reconcile_existing_voucher_columns.php');
         $migration->up();
 
         $this->assertTrue(Schema::hasColumn('vouchers', 'seller_id'));
         $this->assertTrue(Schema::hasColumn('vouchers', 'deleted_at'));
+        $this->assertTrue(Schema::hasColumn('voucher_products', 'updated_at'));
         $this->assertSame('LEGACY10', DB::table('vouchers')->where('id', $voucher->id)->value('code'));
     }
 }
