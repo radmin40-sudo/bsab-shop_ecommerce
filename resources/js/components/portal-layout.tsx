@@ -384,7 +384,7 @@ function CustomerLayout({
     return (
         <div className="min-h-screen bg-[#f5fcf7] text-[#17281d] antialiased">
             {!hideHeader && (
-                <header className={`${isVoucherPage ? 'hidden sm:block' : ''} border-b border-[#def0e2] bg-white`}>
+                <header className={`${isVoucherPage ? 'hidden lg:block' : ''} border-b border-[#def0e2] bg-white`}>
                     <div className="mx-auto flex max-w-310 flex-wrap items-center gap-3 px-5 py-4 sm:flex-nowrap sm:px-8 lg:gap-4">
                         <div className="relative flex shrink-0 items-center gap-2 sm:hidden">
                             <div className="flex items-center gap-1 rounded-full p-1 hover:bg-[#f5fcf7]">

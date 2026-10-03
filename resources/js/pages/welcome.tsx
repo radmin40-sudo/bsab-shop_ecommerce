@@ -480,7 +480,7 @@ export default function Welcome({
                             <span className="inline-flex rounded-full bg-[#e2f2e4] px-3 py-1 text-[10px] font-bold tracking-[.08em] text-[#2c8050] uppercase">
                                 {brandName} Marketplace
                             </span>
-                            <h1 className="font-display mt-3 max-w-107.5 text-[clamp(1.75rem,5vw,2.75rem)] leading-[1.05] font-bold break-words text-[#145437]">
+                            <h1 className="font-display mt-3 max-w-107.5 text-[clamp(1.75rem,5vw,2.75rem)] leading-[1.05] font-bold wrap-break-word text-[#145437]">
                                 {heroTitle}
                                 <br />
                                 <span className="text-[#249653]">{heroHighlight}</span>
