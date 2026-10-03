@@ -437,29 +437,26 @@ export default function Welcome({
                             );
                         })}
                     </nav>
-                    <section
-                        className="relative order-1 mt-3 min-h-60 overflow-hidden rounded-2xl border border-[#e1ebdf] bg-[#eef6e8] bg-cover bg-center px-6 py-8 shadow-[0_8px_25px_rgba(22,59,36,0.06)] sm:min-h-60 sm:px-11 sm:py-9"
-                        style={{
-                            backgroundImage:
-                                heroMediaType !== 'video' && heroMediaPath
-                                    ? `linear-gradient(90deg, rgba(248,253,247,.98) 0%, rgba(248,253,247,.88) 42%, rgba(248,253,247,.08) 75%), url('${heroMediaPath}')`
-                                    : undefined,
-                        }}
-                    >
+                    <section className="relative order-1 mt-3 min-h-60 overflow-hidden rounded-2xl border border-[#e1ebdf] bg-[#eef6e8] px-4 py-6 shadow-[0_8px_25px_rgba(22,59,36,0.06)] sm:px-8 sm:py-8 md:px-11 md:py-9">
                         {heroMediaType === 'video' && heroMediaPath && (
                             <video src={heroMediaPath} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
                         )}
-                        {heroMediaPath && <div className="absolute inset-0 bg-linear-to-r from-[#f8fdf7] via-[#f8fdf7]/85 to-transparent" />}
-                        <div className="relative z-10">
+                        {heroMediaType !== 'video' && heroMediaPath && (
+                            <img src={heroMediaPath} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+                        )}
+                        {heroMediaPath && (
+                            <div className="absolute inset-0 bg-[#f8fdf7]/75 sm:bg-linear-to-r sm:from-[#f8fdf7] sm:via-[#f8fdf7]/85 sm:to-transparent" />
+                        )}
+                        <div className="relative z-10 max-w-full">
                             <span className="inline-flex rounded-full bg-[#e2f2e4] px-3 py-1 text-[10px] font-bold tracking-[.08em] text-[#2c8050] uppercase">
                                 {brandName} Marketplace
                             </span>
-                            <h1 className="font-display mt-3 max-w-107.5 text-[clamp(30px,4vw,44px)] leading-[1.02] font-bold text-[#145437]">
+                            <h1 className="font-display mt-3 max-w-107.5 text-[clamp(1.75rem,5vw,2.75rem)] leading-[1.05] font-bold break-words text-[#145437]">
                                 {heroTitle}
                                 <br />
                                 <span className="text-[#249653]">{heroHighlight}</span>
                             </h1>
-                            <p className="my-4 max-w-95 text-xs leading-5 text-[#5d7768] sm:text-sm">{heroDescription}</p>
+                            <p className="my-4 max-w-95 text-xs leading-relaxed text-[#5d7768] sm:text-sm">{heroDescription}</p>
                             <a
                                 href="#products"
                                 className="inline-flex items-center gap-3 rounded-full bg-[#23834b] px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#23834b]/20"
