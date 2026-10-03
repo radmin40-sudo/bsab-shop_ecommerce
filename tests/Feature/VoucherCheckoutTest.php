@@ -10,7 +10,9 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Models\VoucherClaim;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -113,6 +115,110 @@ class VoucherCheckoutTest extends TestCase
         $order = Order::query()->where('user_id', $customer->id)->firstOrFail();
         $this->assertSame('0.00', $order->shipping_fee);
         $this->assertSame('500.00', $order->total);
+    }
+
+    public function test_checkout_only_orders_selected_cart_items_and_keeps_the_rest_in_cart(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $seller = User::factory()->create();
+        $shop = Shop::create(['user_id' => $seller->id, 'name' => 'Selection Shop', 'slug' => 'selection-shop']);
+        $category = Category::create(['name' => 'Home', 'slug' => 'selection-home']);
+        $selectedProduct = $this->makeProduct($shop, $category, 'Selected Lamp', '500.00');
+        $unselectedProduct = $this->makeProduct($shop, $category, 'Saved Blanket', '800.00');
+
+        $cart = Cart::create(['user_id' => $customer->id]);
+        $selectedItem = CartItem::create([
+            'cart_id' => $cart->id,
+            'product_id' => $selectedProduct->id,
+            'quantity' => 1,
+            'price_snapshot' => 500,
+        ]);
+        $unselectedItem = CartItem::create([
+            'cart_id' => $cart->id,
+            'product_id' => $unselectedProduct->id,
+            'quantity' => 1,
+            'price_snapshot' => 800,
+        ]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => [
+                    'full_name' => 'Test Customer', 'phone' => '09171234567', 'line1' => '123 Main Street',
+                    'city' => 'Pasig', 'province' => 'Metro Manila', 'postal_code' => '1600',
+                ],
+                'payment_method' => 'cash_on_delivery',
+                'selected_item_ids' => [$selectedItem->id],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('subtotal', '500.00');
+
+        $order = Order::query()->where('user_id', $customer->id)->firstOrFail();
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'product_id' => $selectedProduct->id,
+        ]);
+        $this->assertDatabaseMissing('order_items', [
+            'order_id' => $order->id,
+            'product_id' => $unselectedProduct->id,
+        ]);
+        $this->assertDatabaseMissing('cart_items', ['id' => $selectedItem->id]);
+        $this->assertDatabaseHas('cart_items', ['id' => $unselectedItem->id]);
+    }
+
+    public function test_customer_menu_badge_counts_only_unclaimed_available_vouchers(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+
+        $newVoucher = Voucher::create([
+            'name' => 'New claimable voucher',
+            'code' => 'NEWCLAIM'.strtoupper(uniqid()),
+            'type' => 'fixed',
+            'discount_value' => 25,
+            'requires_claim' => true,
+            'is_active' => true,
+        ]);
+        $claimedVoucher = Voucher::create([
+            'name' => 'Already claimed voucher',
+            'code' => 'CLAIMED'.strtoupper(uniqid()),
+            'type' => 'fixed',
+            'discount_value' => 25,
+            'requires_claim' => true,
+            'is_active' => true,
+        ]);
+        VoucherClaim::create([
+            'voucher_id' => $claimedVoucher->id,
+            'user_id' => $customer->id,
+            'status' => 'claimed',
+            'claimed_at' => now(),
+        ]);
+        Voucher::create([
+            'name' => 'No claim required voucher',
+            'code' => 'NOCLAIM'.strtoupper(uniqid()),
+            'type' => 'fixed',
+            'discount_value' => 25,
+            'requires_claim' => false,
+            'is_active' => true,
+        ]);
+        Voucher::create([
+            'name' => 'Expired voucher',
+            'code' => 'EXPIRED'.strtoupper(uniqid()),
+            'type' => 'fixed',
+            'discount_value' => 25,
+            'requires_claim' => true,
+            'is_active' => true,
+            'expires_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($customer, 'web')
+            ->get('/customer/cart')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('customer/cart')
+                ->where('newVoucherCount', 1));
     }
 
     private function makeProduct(Shop $shop, Category $category, string $name, string $price): Product

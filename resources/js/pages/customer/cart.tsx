@@ -48,12 +48,16 @@ export default function CustomerCart() {
     const items: CartItem[] = data?.items || [];
 
     const [busyId, setBusyId] = useState<number | null>(null);
+    const [selectedItemIds, setSelectedItemIds] = useState<number[] | null>(null);
     const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [checkoutBusy, setCheckoutBusy] = useState(false);
     const [notice, setNotice] = useState('');
     const [voucherCode, setVoucherCode] = useState('');
     const [voucherBusy, setVoucherBusy] = useState(false);
+    const [voucherQuote, setVoucherQuote] = useState<CartData['voucher_quote']>(data?.voucher_quote ?? null);
+    const [voucherQuoteError, setVoucherQuoteError] = useState('');
+    const [voucherQuoteLoading, setVoucherQuoteLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'gcash'>('cash_on_delivery');
     const [gcashReceipt, setGcashReceipt] = useState<File | null>(null);
     const [qrPreview, setQrPreview] = useState<{ name: string; url: string } | null>(null);
@@ -66,17 +70,79 @@ export default function CustomerCart() {
         postal_code: '',
     });
 
-    const subtotal = items.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
-    const discount = Number(data?.voucher_quote?.discount ?? 0);
+    const selectedItems = selectedItemIds === null ? items : items.filter((item) => selectedItemIds.includes(item.id));
+    const allItemsSelected = items.length > 0 && selectedItems.length === items.length;
+    const selectedItemsKey = selectedItems.map((item) => item.id).join(',');
+    const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
+    const discount = Number(voucherQuote?.discount ?? 0);
     const total = Math.max(0, subtotal - discount);
     const shopsWithQr = Array.from(
         new Map<number, CartShopWithQr>(
-            items.flatMap((item) => {
+            selectedItems.flatMap((item) => {
                 const shop = item.product?.shop;
                 return shop?.gcash_qr_code_url ? [[shop.id, { ...shop, gcash_qr_code_url: shop.gcash_qr_code_url }] as [number, CartShopWithQr]] : [];
             }),
         ).values(),
     );
+
+    useEffect(() => {
+        if (!data?.voucher) {
+            setVoucherQuote(null);
+            setVoucherQuoteError('');
+            setVoucherQuoteLoading(false);
+            return;
+        }
+
+        if (!selectedItems.length) {
+            setVoucherQuote(null);
+            setVoucherQuoteError('');
+            setVoucherQuoteLoading(false);
+            return;
+        }
+
+        if (selectedItems.length === items.length) {
+            setVoucherQuote(data.voucher_quote ?? null);
+            setVoucherQuoteError('');
+            setVoucherQuoteLoading(false);
+            return;
+        }
+
+        let current = true;
+        setVoucherQuote(null);
+        setVoucherQuoteError('');
+        setVoucherQuoteLoading(true);
+        api.post('/customer/cart/voucher/quote', { selected_item_ids: selectedItems.map((item) => item.id) })
+            .then((response) => {
+                if (!current) return;
+                setVoucherQuote(response.data.voucher);
+                setVoucherQuoteError('');
+                setVoucherQuoteLoading(false);
+            })
+            .catch((error: unknown) => {
+                if (!current) return;
+                setVoucherQuote(null);
+                setVoucherQuoteError(apiErrorMessage(error, 'This voucher cannot be applied to the selected items.'));
+                setVoucherQuoteLoading(false);
+            });
+
+        return () => {
+            current = false;
+        };
+    }, [data?.voucher?.id, data?.voucher_quote, items.length, selectedItemsKey]);
+
+    function toggleItemSelection(itemId: number) {
+        const selectedIds = new Set(selectedItems.map((item) => item.id));
+        if (selectedIds.has(itemId)) {
+            selectedIds.delete(itemId);
+        } else {
+            selectedIds.add(itemId);
+        }
+        setSelectedItemIds(Array.from(selectedIds));
+    }
+
+    function toggleAllItems() {
+        setSelectedItemIds(allItemsSelected ? [] : null);
+    }
 
     async function changeQuantity(item: CartItem, quantity: number) {
         if (quantity < 1) return;
@@ -178,6 +244,7 @@ export default function CustomerCart() {
             await checkoutCart({
                 shipping_address: address,
                 payment_method: paymentMethod,
+                selected_item_ids: selectedItems.map((item) => item.id),
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
             router.visit('/customer/orders');
@@ -236,6 +303,21 @@ export default function CustomerCart() {
                             </div>
                         ) : (
                             <div className="overflow-hidden rounded-2xl border border-[#def0e2] bg-white shadow-sm">
+                                <div className="flex items-center justify-between border-b border-[#e6f7eb] px-5 py-3 sm:px-6">
+                                    <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#163b24]">
+                                        <input
+                                            type="checkbox"
+                                            checked={allItemsSelected}
+                                            onChange={toggleAllItems}
+                                            className="h-4 w-4 rounded border-[#b8d7c0] accent-[#1f7a42]"
+                                            aria-label="Select all cart items"
+                                        />
+                                        Select all
+                                    </label>
+                                    <span className="text-xs text-[#647568]">
+                                        {selectedItems.length} of {items.length} selected
+                                    </span>
+                                </div>
                                 {items.map((item, index) => {
                                     const image = item.product?.images?.find((img) => img.is_primary) || item.product?.images?.[0];
                                     const imgSrc = image
@@ -249,6 +331,13 @@ export default function CustomerCart() {
                                             className={`flex items-center gap-4 px-5 py-5 sm:px-6 ${index !== 0 ? 'border-t border-[#e6f7eb]' : ''}`}
                                             style={{ opacity: busyId === item.id ? 0.5 : 1, transition: 'opacity 150ms' }}
                                         >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.some((selectedItem) => selectedItem.id === item.id)}
+                                                onChange={() => toggleItemSelection(item.id)}
+                                                className="h-4 w-4 shrink-0 rounded border-[#b8d7c0] accent-[#1f7a42]"
+                                                aria-label={`Select ${item.product?.name || 'cart item'} for checkout`}
+                                            />
                                             <div className="h-19.5 w-19.5 shrink-0 overflow-hidden rounded-xl bg-[#e6f7eb]">
                                                 {imgSrc ? (
                                                     <img
@@ -317,7 +406,7 @@ export default function CustomerCart() {
                             <div className="mt-5 space-y-3 text-sm text-[#647568]">
                                 <div className="flex justify-between">
                                     <span>
-                                        Subtotal ({items.length} {items.length === 1 ? 'item' : 'items'})
+                                        Subtotal ({selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'})
                                     </span>
                                     <span className="font-medium text-[#163b24]">{formatPrice(subtotal)}</span>
                                 </div>
@@ -327,10 +416,10 @@ export default function CustomerCart() {
                                 </div>
                                 <div className="border-t border-[#e6f7eb] pt-3">
                                     <p className="mb-2 font-semibold text-[#163b24]">Voucher</p>
-                                    {data?.voucher_quote ? (
+                                    {voucherQuote ? (
                                         <div className="flex items-center justify-between gap-2 rounded-lg bg-[#edf8ef] px-3 py-2 text-xs text-[#1f7a42]">
                                             <span className="truncate">
-                                                <b>{data.voucher_quote.code}</b> applied
+                                                <b>{voucherQuote.code}</b> applied
                                             </span>
                                             <button type="button" disabled={voucherBusy} onClick={removeVoucher} className="font-bold underline">
                                                 Remove
@@ -354,6 +443,7 @@ export default function CustomerCart() {
                                             </button>
                                         </div>
                                     )}
+                                    {voucherQuoteError && <p className="mt-2 text-xs text-[#b3413a]">{voucherQuoteError}</p>}
                                 </div>
                                 {discount > 0 && (
                                     <div className="flex justify-between font-semibold text-[#1f7a42]">
@@ -460,7 +550,7 @@ export default function CustomerCart() {
                                         )}
 
                                         <button
-                                            disabled={checkoutBusy || !items.length}
+                                            disabled={checkoutBusy || !selectedItems.length || voucherQuoteLoading || Boolean(voucherQuoteError)}
                                             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f7a42] py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#163b24] disabled:opacity-50"
                                         >
                                             {checkoutBusy ? 'Processing…' : 'Place order'} <ArrowRight size={16} />
@@ -476,10 +566,11 @@ export default function CustomerCart() {
                                 ) : (
                                     <button
                                         onClick={openCheckout}
-                                        disabled={!items.length || checkoutLoading}
+                                        disabled={!selectedItems.length || checkoutLoading || voucherQuoteLoading || Boolean(voucherQuoteError)}
                                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1f7a42] py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#163b24] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {checkoutLoading ? 'Loading details…' : 'Proceed to Checkout'} <ArrowRight size={16} />
+                                        {checkoutLoading ? 'Loading details…' : `Proceed to Checkout (${selectedItems.length})`}{' '}
+                                        <ArrowRight size={16} />
                                     </button>
                                 )}
                             </div>

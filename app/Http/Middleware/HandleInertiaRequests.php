@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Cart;
 use App\Models\SiteSetting;
+use App\Services\VoucherService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +57,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'cartCount' => $user
                 ? (int) Cart::query()->where('user_id', $user->id)->withSum('items', 'quantity')->value('items_sum_quantity')
+                : 0,
+            'newVoucherCount' => fn () => $user?->hasRole('customer')
+                ? app(VoucherService::class)->newClaimableCount($user)
                 : 0,
         ]);
     }

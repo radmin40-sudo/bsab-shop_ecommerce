@@ -21,7 +21,14 @@ class VoucherService
             ->where('is_active', true)
             ->where(fn ($builder) => $builder->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($builder) => $builder->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->withCount(['claims', 'usages'])
+            ->withCount([
+                'claims',
+                'usages',
+                'usages as user_used_count' => fn ($builder) => $builder->where('user_id', $user->id)->where('status', 'used'),
+            ])
+            ->withExists([
+                'claims as claimed_by_user' => fn ($builder) => $builder->where('user_id', $user->id)->where('status', 'claimed'),
+            ])
             ->latest();
 
         if ($user->orders()->exists()) {
@@ -33,13 +40,19 @@ class VoucherService
                 return false;
             }
 
-            $uses = $voucher->usages()->where('user_id', $user->id)->where('status', 'used')->count();
-            if ($voucher->per_customer_usage_limit !== null && $uses >= $voucher->per_customer_usage_limit) {
+            if ($voucher->per_customer_usage_limit !== null && $voucher->user_used_count >= $voucher->per_customer_usage_limit) {
                 return false;
             }
 
             return true;
         })->values();
+    }
+
+    public function newClaimableCount(User $user): int
+    {
+        return $this->availableForCustomer($user)
+            ->filter(fn (Voucher $voucher) => $voucher->requires_claim && ! $voucher->claimed_by_user)
+            ->count();
     }
 
     public function availableForProduct(Product $product, ?User $user = null): Collection

@@ -1,5 +1,5 @@
-import { Link, router, usePage } from '@inertiajs/react';
 import CustomerBottomNav from '@/components/customer-bottom-nav';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
     Box,
@@ -116,7 +116,11 @@ export function PortalLayout({
     wideContent?: boolean;
     children: React.ReactNode;
 }) {
-    const page = usePage<{ auth: { user: { name: string; email: string; avatar?: string } }; siteSettings?: Record<string, string | null> }>();
+    const page = usePage<{
+        auth: { user: { name: string; email: string; avatar?: string } };
+        siteSettings?: Record<string, string | null>;
+        newVoucherCount?: number;
+    }>();
     const { auth } = page.props;
     const siteSettings = page.props.siteSettings ?? {};
     const brandName = siteSettings.brand_name || 'BSABShop';
@@ -128,7 +132,9 @@ export function PortalLayout({
     const url = typeof page.url === 'string' ? page.url : '';
     const [open, setOpen] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-    if (role === 'customer') return <CustomerLayout auth={auth} url={url} hideHeader={hideHeader} children={children} />;
+    if (role === 'customer') {
+        return <CustomerLayout auth={auth} url={url} hideHeader={hideHeader} newVoucherCount={page.props.newVoucherCount ?? 0} children={children} />;
+    }
     const initials = auth.user.name
         .split(' ')
         .map((name) => name[0])
@@ -344,11 +350,13 @@ function CustomerLayout({
     auth,
     url,
     hideHeader,
+    newVoucherCount,
     children,
 }: {
     auth: { user: { name: string; email: string; avatar?: string } };
     url: string;
     hideHeader: boolean;
+    newVoucherCount: number;
     children: React.ReactNode;
 }) {
     const [accountOpen, setAccountOpen] = useState(false);
@@ -413,6 +421,18 @@ function CustomerLayout({
                                         className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                     >
                                         <Settings size={16} /> Settings
+                                    </Link>
+                                    <Link
+                                        href="/customer/vouchers"
+                                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
+                                        aria-label={`My vouchers${newVoucherCount > 0 ? `, ${newVoucherCount} new` : ''}`}
+                                    >
+                                        <TicketPercent size={16} /> My vouchers
+                                        {newVoucherCount > 0 && (
+                                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2a9b59] px-1.5 text-[10px] font-bold text-white">
+                                                {newVoucherCount > 99 ? '99+' : newVoucherCount}
+                                            </span>
+                                        )}
                                     </Link>
                                     <hr className="my-1 border-[#def0e2]" />
                                     <Link
@@ -528,6 +548,18 @@ function CustomerLayout({
                                             className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
                                         >
                                             <Settings size={16} /> Settings
+                                        </Link>
+                                        <Link
+                                            href="/customer/vouchers"
+                                            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
+                                            aria-label={`My vouchers${newVoucherCount > 0 ? `, ${newVoucherCount} new` : ''}`}
+                                        >
+                                            <TicketPercent size={16} /> My vouchers
+                                            {newVoucherCount > 0 && (
+                                                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2a9b59] px-1.5 text-[10px] font-bold text-white">
+                                                    {newVoucherCount > 99 ? '99+' : newVoucherCount}
+                                                </span>
+                                            )}
                                         </Link>
                                         <hr className="my-1 border-[#def0e2]" />
                                         <Link
