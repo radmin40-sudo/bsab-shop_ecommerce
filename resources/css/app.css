@@ -65,6 +65,14 @@ aside::-webkit-scrollbar {
     display: none;
 }
 
+html:has(.marketplace-page) {
+    scrollbar-width: none;
+}
+
+html:has(.marketplace-page)::-webkit-scrollbar {
+    display: none;
+}
+
 @media (max-width: 767px) {
     body:has(.mobile-product-detail) {
         scrollbar-width: none;

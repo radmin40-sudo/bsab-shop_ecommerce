@@ -181,7 +181,7 @@ export default function Welcome({
     return (
         <>
             <Head title={`${brandName} Marketplace - Best Picks, Best Prices`} />
-            <div className="min-h-screen bg-[#f7fbf7] text-[#173b2a] antialiased">
+            <div className="marketplace-page min-h-screen bg-[#f7fbf7] text-[#173b2a] antialiased">
                 <header className="border-b border-[#e5eee7] bg-white">
                     <div className="mx-auto flex w-full max-w-110 flex-wrap items-center gap-3 px-4 py-3 sm:max-w-195 sm:px-5 lg:max-w-7xl lg:flex-nowrap lg:gap-5 lg:px-8">
                         <Link href={route('home')} className="flex shrink-0 items-center gap-2" aria-label={`${brandName} home`}>
