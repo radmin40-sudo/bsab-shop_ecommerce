@@ -275,7 +275,7 @@ export default function MobileProductDetail({
     };
 
     return (
-        <div className="mobile-product-detail mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-white text-[#0f281e] selection:bg-emerald-100">
+        <div className="mobile-product-detail mx-auto flex min-h-screen w-full max-w-107.5 flex-col bg-white text-[#0f281e] selection:bg-emerald-100">
             <header className="sticky top-0 z-30 grid h-12 grid-cols-[40px_1fr_40px] items-center bg-white px-4">
                 <button
                     type="button"
@@ -298,7 +298,7 @@ export default function MobileProductDetail({
 
             {/* Toast Notification */}
             {toastMessage && (
-                <div className="animate-in fade-in slide-in-from-top-2 fixed top-12 left-1/2 z-50 w-full max-w-[390px] -translate-x-1/2 px-4">
+                <div className="animate-in fade-in slide-in-from-top-2 fixed top-12 left-1/2 z-50 w-full max-w-97.5 -translate-x-1/2 px-4">
                     <div
                         className={`flex items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold shadow-lg ${
                             toastType === 'success'
@@ -370,13 +370,13 @@ export default function MobileProductDetail({
 
                 {/* Product Thumbnails: ONLY show if there are 2 or more images */}
                 {productImages.length > 1 && (
-                    <div className="mt-3 flex scrollbar-none gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
+                    <div className="mt-3 flex scrollbar-none gap-3 overflow-x-auto px-4 pb-1 min-[480px]:grid min-[480px]:grid-cols-6 min-[480px]:gap-2 min-[480px]:overflow-visible [&::-webkit-scrollbar]:hidden">
                         {productImages.map((img, idx) => (
                             <button
                                 key={idx}
                                 type="button"
                                 onClick={() => setActiveImageIndex(idx)}
-                                className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f4f5f4] p-1.5 transition ${
+                                className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f4f5f4] p-1.5 transition min-[480px]:h-auto min-[480px]:w-full min-[480px]:aspect-square ${
                                     activeImageIndex === idx
                                         ? 'border-2 border-[#15803d] shadow-xs'
                                         : 'border border-transparent hover:border-gray-200'
@@ -405,7 +405,7 @@ export default function MobileProductDetail({
                                     return <Star key={star} size={15} className="fill-[#16a34a] text-[#16a34a]" />;
                                 } else if (fillLevel >= 0.3) {
                                     return (
-                                        <div key={star} className="relative inline-block h-[15px] w-[15px]">
+                                        <div key={star} className="relative inline-block h-3.75 w-3.75">
                                             <Star size={15} className="fill-[#d1d5db] text-[#d1d5db]" />
                                             <div className="absolute top-0 left-0 h-full w-[50%] overflow-hidden">
                                                 <Star size={15} className="fill-[#16a34a] text-[#16a34a]" />
@@ -560,7 +560,7 @@ export default function MobileProductDetail({
                                 {productDetails.map((detail) => (
                                     <div key={detail.label} className="min-w-0">
                                         <dt className="text-[10px] font-semibold text-[#718078] uppercase">{detail.label}</dt>
-                                        <dd className="mt-0.5 text-xs font-medium break-words text-[#24392e]">{detail.value}</dd>
+                                        <dd className="mt-0.5 text-xs font-medium wrap-break-word text-[#24392e]">{detail.value}</dd>
                                     </div>
                                 ))}
                             </dl>

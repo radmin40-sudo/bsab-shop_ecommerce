@@ -4,6 +4,7 @@ import CustomerBottomNav from '@/components/customer-bottom-nav';
 import {
     ArrowRight,
     Check,
+    Download,
     Dumbbell,
     Gift,
     Grid2X2,
@@ -99,9 +100,6 @@ export default function Welcome({
     const footerQuickLinksTitle = siteSettings.footer_quick_links_title || 'Quick Links';
     const footerCareTitle = siteSettings.footer_care_title || 'Customer Care';
     const footerAboutTitle = siteSettings.footer_about_title || 'About our marketplace';
-    const footerNewsletterTitle = siteSettings.footer_newsletter_title || 'Stay in the loop';
-    const footerNewsletterText = siteSettings.footer_newsletter_text || 'Get the latest deals and updates.';
-    const newsletterPlaceholder = siteSettings.newsletter_placeholder || 'Enter your email address';
     const [activeCategory, setActiveCategory] = useState('all');
     const [search, setSearch] = useState(query);
     const [liked, setLiked] = useState<number[]>(() => products.filter((product) => product.is_favorited).map((product) => product.id));
@@ -184,16 +182,20 @@ export default function Welcome({
             <Head title={`${brandName} Marketplace - Best Picks, Best Prices`} />
             <div className="marketplace-page min-h-screen bg-[#f7fbf7] text-[#173b2a] antialiased">
                 <header className="border-b border-[#e5eee7] bg-white">
-                    <div className="mx-auto flex w-full max-w-110 flex-wrap items-center gap-3 px-4 py-3 sm:max-w-195 sm:px-5 lg:max-w-7xl lg:flex-nowrap lg:gap-5 lg:px-8">
-                        <Link href={route('home')} className="flex shrink-0 items-center gap-2" aria-label={`${brandName} home`}>
+                    <div className="mx-auto flex w-full max-w-110 flex-wrap items-center gap-3 px-4 py-3 min-[430px]:max-[640px]:max-w-full min-[430px]:max-[640px]:gap-2 min-[430px]:max-[640px]:px-3 min-[430px]:max-[640px]:py-2.5 sm:max-w-195 sm:px-5 lg:max-w-7xl lg:flex-nowrap lg:gap-5 lg:px-8">
+                        <Link
+                            href={route('home')}
+                            className="flex shrink-0 items-center gap-2 min-[430px]:max-[640px]:gap-1.5 min-[430px]:max-[640px]:min-w-0"
+                            aria-label={`${brandName} home`}
+                        >
                             {logoPath ? (
-                                <img src={logoPath} alt={brandName} className="h-9 w-9 rounded-full object-cover" />
+                                <img src={logoPath} alt={brandName} className="h-9 w-9 rounded-full object-cover min-[430px]:max-[640px]:h-8 min-[430px]:max-[640px]:w-8" />
                             ) : (
-                                <span className="flex h-9 w-9 items-center justify-center rounded-full text-[#25804a]">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full text-[#25804a] min-[430px]:max-[640px]:h-8 min-[430px]:max-[640px]:w-8">
                                     <Sparkles size={18} />
                                 </span>
                             )}
-                            <span className="font-display text-xl font-bold text-[#145c3d]">{brandName}</span>
+                            <span className="font-display text-xl font-bold text-[#145c3d] min-[430px]:max-[640px]:text-lg">{brandName}</span>
                         </Link>
                         <nav className="hidden items-center gap-1 sm:ml-auto lg:flex" aria-label="Desktop navigation">
                             <Link
@@ -223,16 +225,16 @@ export default function Welcome({
                         </nav>
                         <form
                             onSubmit={submitSearch}
-                            className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:my-0 lg:max-w-155"
+                            className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] min-[430px]:max-[640px]:order-2 min-[430px]:max-[640px]:px-2.5 min-[430px]:max-[640px]:py-2 sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:my-0 lg:max-w-155"
                         >
-                            <button type="submit" aria-label="Search products" className="shrink-0 text-[#647568] transition hover:text-[#1f7a42]">
+                            <button type="submit" aria-label="Search products" className="shrink-0 text-[#647568] transition hover:text-[#1f7a42] min-[430px]:max-[640px]:hidden">
                                 <Search size={16} />
                             </button>
                             <input
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                                 placeholder="Search for products, brands and more..."
-                                className="w-full bg-transparent text-sm outline-none placeholder:text-[#5c6e63]"
+                                className="w-full bg-transparent text-sm outline-none placeholder:text-[#5c6e63] min-[430px]:max-[640px]:text-xs"
                             />
                             {search && (
                                 <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="text-[#5c6e63] hover:text-[#173b2a]">
@@ -253,10 +255,10 @@ export default function Welcome({
                                 )}
                             </button>
                         </form>
-                        <div className="order-1 ml-auto flex items-center justify-end gap-2 sm:order-2 sm:ml-5 lg:hidden">
+                        <div className="order-1 ml-auto flex items-center justify-end gap-2 min-[430px]:max-[640px]:mr-0 min-[430px]:max-[640px]:gap-1.5 sm:order-2 sm:ml-5 lg:hidden">
                             <Link
                                 href={route('customer.cart')}
-                                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7] min-[430px]:max-[640px]:h-9 min-[430px]:max-[640px]:w-9"
                                 aria-label={`Open cart, ${cartCount} items`}
                             >
                                 <ShoppingCart size={18} strokeWidth={2.2} />
@@ -271,11 +273,11 @@ export default function Welcome({
                                 <div className="relative">
                                     <button
                                         onClick={() => setAccountOpen(!accountOpen)}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7]"
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-[#1b4332] transition hover:bg-[#f5fcf7] min-[430px]:max-[640px]:h-9 min-[430px]:max-[640px]:w-9"
                                         aria-label="Open account menu"
                                         aria-expanded={accountOpen}
                                     >
-                                        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#52b788] text-[10px] font-bold text-[#1b4332]">
+                                        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#52b788] text-[10px] font-bold text-[#1b4332] min-[430px]:max-[640px]:h-7 min-[430px]:max-[640px]:w-7">
                                             {avatarUrl(auth.user.avatar) ? (
                                                 <img
                                                     src={avatarUrl(auth.user.avatar) as string}
@@ -747,24 +749,15 @@ export default function Welcome({
                                 </div>
                             </div>
                             <div>
-                                <p className="font-bold text-[#315947]">{footerNewsletterTitle}</p>
-                                <p className="mt-1 text-[10px]">{footerNewsletterText}</p>
-                                <div className="mt-3 flex overflow-hidden rounded-lg border border-[#dce8de] bg-[#fbfdfb]">
-                                    <input
-                                        aria-label="Email address"
-                                        placeholder={newsletterPlaceholder}
-                                        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-[10px] outline-none"
-                                    />
-                                    <button aria-label="Subscribe" className="bg-[#258b50] px-3 text-white">
-                                        →
-                                    </button>
-                                </div>
-                                <div className="mt-3 flex gap-2 text-[#315947]">
-                                    <span>◉</span>
-                                    <span>◎</span>
-                                    <span>◍</span>
-                                    <span>♪</span>
-                                </div>
+                                <p className="font-bold text-[#315947]">Install BSAB-SHOP</p>
+                                <p className="mt-1 text-[10px]">Add our app to your device for quick access.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => window.dispatchEvent(new Event('bsabshop:request-install'))}
+                                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#258b50] px-3 text-xs font-bold text-white transition hover:bg-[#1f7a42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#258b50]"
+                                >
+                                    <Download size={15} /> Install app
+                                </button>
                             </div>
                         </div>
                     </footer>

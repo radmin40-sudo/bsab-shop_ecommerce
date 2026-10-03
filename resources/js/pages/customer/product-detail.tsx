@@ -956,7 +956,7 @@ export default function ProductDetail({ product, similarProducts = [], available
                     Profile
                 </Link>
             </nav>
-            <div className="block md:hidden">
+            <div className="block min-[446px]:hidden">
                 <MobileProductDetail
                     product={product}
                     matchingVariant={matchingVariant}

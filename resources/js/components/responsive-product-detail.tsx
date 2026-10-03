@@ -194,9 +194,9 @@ export default function ResponsiveProductDetail({
     ];
 
     return (
-        <div className="hidden min-h-screen bg-[#f1f7f1] text-[#173a29] md:block">
-            <header className="border-b border-[#dce9df] bg-white">
-                <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3 sm:px-5 lg:flex-nowrap lg:gap-5 lg:px-8">
+        <div className="hidden min-h-screen bg-[#f1f7f1] text-[#173a29] min-[446px]:block">
+            <header className="border-b border-[#dce9df] bg-white min-[446px]:max-[1021px]:hidden">
+                <div className="mx-auto flex w-full max-w-360 flex-wrap items-center gap-3 px-4 py-3 sm:px-5 lg:flex-nowrap lg:gap-5 lg:px-8">
                     <Link href={route('home')} className="flex shrink-0 items-center gap-2" aria-label={`${brandName} home`}>
                         {logoPath ? (
                             <img src={logoPath} alt={brandName} className="h-9 w-9 rounded-full object-cover" />
@@ -237,7 +237,7 @@ export default function ResponsiveProductDetail({
 
                     <form
                         onSubmit={submitSearch}
-                        className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-[520px] sm:flex-1 lg:order-2 lg:mx-0 lg:max-w-[620px]"
+                        className="order-2 flex w-full items-center gap-2 rounded-full border border-[#dfeae2] bg-[#fbfdfb] px-3.5 py-2.5 focus-within:border-[#2c9350] focus-within:ring-4 focus-within:ring-[#e6f7eb] sm:order-1 sm:w-auto sm:max-w-130 sm:flex-1 lg:order-2 lg:mx-0 lg:max-w-155"
                     >
                         <Search size={16} className="shrink-0 text-[#647568]" />
                         <input
@@ -363,7 +363,6 @@ export default function ResponsiveProductDetail({
                                                 auth.user.name.slice(0, 2).toUpperCase()
                                             )}
                                         </span>
-                                        <span className="hidden max-w-32 truncate text-xs font-semibold xl:inline">{auth.user.name}</span>
                                     </button>
                                     {accountOpen && (
                                         <div className="absolute top-12 right-0 z-30 w-44 rounded-xl border border-[#def0e2] bg-white p-1.5 shadow-[0_8px_25px_rgba(22,59,36,0.1)]">
@@ -404,7 +403,7 @@ export default function ResponsiveProductDetail({
                 </div>
             </header>
 
-            <main className="mx-auto max-w-[1440px] px-3 py-4 pb-12 sm:px-5 lg:px-8 lg:py-6">
+            <main className="mx-auto max-w-360 px-3 py-4 pb-12 sm:px-5 lg:px-8 lg:py-6">
                 <div className="mb-4 flex items-center justify-between">
                     <Link
                         href={route('customer.products')}
@@ -418,16 +417,16 @@ export default function ResponsiveProductDetail({
                 </div>
 
                 <section className="overflow-hidden rounded-[22px] border border-[#dceade] bg-white shadow-[0_10px_32px_rgba(37,93,54,0.08)]">
-                    <div className="grid gap-4 p-3 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:gap-5 md:p-4 xl:gap-7 xl:p-5">
-                        <div className="grid min-w-0 grid-cols-[54px_minmax(0,1fr)] gap-2.5 md:grid-cols-[62px_minmax(0,1fr)] md:gap-3">
-                            <div className="flex max-h-[460px] scrollbar-none flex-col gap-2 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+                    <div className="grid grid-cols-1 gap-4 p-3 md:gap-5 md:p-4 min-[1021px]:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:gap-7 xl:p-5">
+                        <div className="grid min-w-0 grid-cols-1 gap-2.5 md:gap-3 min-[1021px]:grid-cols-[62px_minmax(0,1fr)]">
+                            <div className="flex max-h-115 scrollbar-none flex-col gap-2 overflow-y-auto min-[446px]:max-[1021px]:order-2 min-[446px]:max-[1021px]:max-h-none min-[446px]:max-[1021px]:flex-row min-[446px]:max-[1021px]:overflow-x-auto min-[446px]:max-[1021px]:overflow-y-hidden [&::-webkit-scrollbar]:hidden">
                                 {(product.images ?? []).map((image, index) => (
                                     <button
                                         key={`${image.path}-${index}`}
                                         type="button"
                                         onClick={() => onSelectImage(image.path)}
                                         aria-label={`Show product image ${index + 1}`}
-                                        className={`flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition ${
+                                        className={`flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-white p-1 transition min-[446px]:max-[1021px]:w-16 ${
                                             selectedImage === image.path
                                                 ? 'border-2 border-[#19824a] shadow-[0_3px_12px_rgba(25,130,74,0.16)]'
                                                 : 'border-[#e1ebe3]'
@@ -447,7 +446,7 @@ export default function ResponsiveProductDetail({
                                 )}
                             </div>
 
-                            <div className="relative flex min-h-[280px] items-center justify-center overflow-hidden rounded-[18px] bg-[#edf6ee] md:aspect-square md:min-h-0">
+                            <div className="relative flex min-h-0 aspect-16/10 items-center justify-center overflow-hidden rounded-[18px] bg-[#edf6ee] min-[1021px]:aspect-square">
                                 {badge && (
                                     <span className="absolute top-3 left-3 z-10 rounded-full bg-[#168447] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm">
                                         {badge}
@@ -463,7 +462,7 @@ export default function ResponsiveProductDetail({
                                     <Heart size={18} className={isFavorited ? 'fill-[#138047]' : ''} />
                                 </button>
                                 {displayImage ? (
-                                    <img src={displayImage} alt={product.name} className="h-full max-h-[520px] w-full object-contain p-3 md:p-5" />
+                                    <img src={displayImage} alt={product.name} className="h-full max-h-130 w-full object-contain p-3 md:p-5" />
                                 ) : (
                                     <Package size={76} className="text-[#4d8b62]" />
                                 )}
@@ -705,7 +704,7 @@ export default function ResponsiveProductDetail({
                         {trustItems.map(({ icon: Icon, label, detail }) => (
                             <div
                                 key={label}
-                                className="flex min-h-[72px] items-center gap-2 border-r border-[#e5efe7] px-3 py-2.5 last:border-r-0 md:justify-center md:px-2 xl:gap-3"
+                                className="flex min-h-18 items-center gap-2 border-r border-[#e5efe7] px-3 py-2.5 last:border-r-0 md:justify-center md:px-2 xl:gap-3"
                             >
                                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e9f5eb] text-[#188048]">
                                     <Icon size={17} />
@@ -759,7 +758,7 @@ export default function ResponsiveProductDetail({
                                                             </span>
                                                             <span className="min-w-0">
                                                                 <span className="block text-xs font-bold text-[#285c3a]">{label}</span>
-                                                                <span className="mt-0.5 block text-[11px] break-words text-[#718579]">{value}</span>
+                                                                <span className="mt-0.5 block text-[11px] wrap-break-word text-[#718579]">{value}</span>
                                                             </span>
                                                             <Check size={15} className="ml-auto shrink-0 text-[#20854c]" />
                                                         </div>
@@ -800,7 +799,7 @@ export default function ResponsiveProductDetail({
                                 {details.map(([label, value]) => (
                                     <div key={label} className="grid grid-cols-[minmax(90px,0.8fr)_1.2fr] gap-3 py-2 text-xs">
                                         <dt className="text-[#778b7c]">{label}</dt>
-                                        <dd className="font-semibold break-words text-[#3b5e46]">{value}</dd>
+                                        <dd className="font-semibold wrap-break-word text-[#3b5e46]">{value}</dd>
                                     </div>
                                 ))}
                             </dl>
