@@ -24,7 +24,7 @@ function currency(value: string | number) {
 
 export default function CustomerVouchers() {
     const { claims, available } = usePage<Props>().props;
-    const [tab, setTab] = useState<'active' | 'unclaimed' | 'expired'>('active');
+    const [tab, setTab] = useState<'active' | 'expired'>('active');
     const [claimedIds, setClaimedIds] = useState(claims.filter((claim) => claim.status === 'claimed').map((claim) => claim.voucher_id));
     const [busyId, setBusyId] = useState<number | null>(null);
     const [notice, setNotice] = useState('');
@@ -43,10 +43,8 @@ export default function CustomerVouchers() {
     const activeWithoutClaim = available.filter((voucher) => !voucher.requires_claim);
     const entries =
         tab === 'active'
-            ? [...activeClaims.map((claim) => claim.voucher), ...activeWithoutClaim]
-            : tab === 'unclaimed'
-              ? unclaimed
-              : expiredClaims.map((claim) => claim.voucher);
+            ? [...activeClaims.map((claim) => claim.voucher), ...activeWithoutClaim, ...unclaimed]
+            : expiredClaims.map((claim) => claim.voucher);
 
     async function claimVoucher(voucher: Voucher) {
         setBusyId(voucher.id);
@@ -76,11 +74,10 @@ export default function CustomerVouchers() {
                     </div>
                     <TicketPercent size={100} className="absolute right-7 bottom-3 hidden -rotate-12 text-[#23804a]/20 sm:block" />
                 </header>
-                <div className="mb-5 grid grid-cols-3 gap-2 rounded-xl border border-[#dcebe0] bg-white p-1.5">
+                <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-[#dcebe0] bg-white p-1.5">
                     {(
                         [
-                            ['active', 'Active', activeClaims.length],
-                            ['unclaimed', 'Unclaimed', unclaimed.length],
+                            ['active', 'Active', activeClaims.length + activeWithoutClaim.length + unclaimed.length],
                             ['expired', 'Expired', expiredClaims.length],
                         ] as const
                     ).map(([key, label, count]) => (
@@ -134,7 +131,7 @@ export default function CustomerVouchers() {
                                         </div>
                                         {expired ? (
                                             <span className="rounded-full bg-[#edf0ed] px-3 py-2 text-xs font-bold text-[#728077]">Expired</span>
-                                        ) : tab === 'unclaimed' ? (
+                                        ) : voucher.requires_claim && !claimed ? (
                                             <button
                                                 disabled={busyId === voucher.id}
                                                 onClick={() => claimVoucher(voucher)}

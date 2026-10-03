@@ -20,6 +20,7 @@ import {
     Sofa,
     Sparkles,
     Star,
+    TicketPercent,
     UserRound,
     X,
 } from 'lucide-react';
@@ -79,7 +80,7 @@ export default function Welcome({
     siteSettings?: Record<string, string | null>;
     query?: string;
 }) {
-    const { auth, cartCount = 0 } = usePage<SharedData & { cartCount?: number }>().props;
+    const { auth, cartCount = 0, newVoucherCount = 0 } = usePage<SharedData>().props;
     const brandName = siteSettings.brand_name || 'BSABShop';
     const logoPath = siteSettings.logo_path ? imageUrl(siteSettings.logo_path) : null;
     const heroMediaPath = siteSettings.hero_media_path ? imageUrl(siteSettings.hero_media_path) : null;
@@ -294,6 +295,20 @@ export default function Welcome({
                                             >
                                                 <UserRound size={16} /> Profile
                                             </Link>
+                                            <hr className="my-1 border-[#def0e2]" />
+                                            <Link
+                                                href={route('customer.vouchers')}
+                                                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
+                                                aria-label={`Voucher${newVoucherCount > 0 ? `, ${newVoucherCount} new` : ''}`}
+                                            >
+                                                <TicketPercent size={16} /> Voucher
+                                                {newVoucherCount > 0 && (
+                                                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#52b788] px-1.5 text-[10px] font-bold text-white">
+                                                        {newVoucherCount > 99 ? '99+' : newVoucherCount}
+                                                    </span>
+                                                )}
+                                            </Link>
+                                            <hr className="my-1 border-[#def0e2]" />
                                             <Link
                                                 href={route('customer.settings')}
                                                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
@@ -362,6 +377,20 @@ export default function Welcome({
                                                 >
                                                     <UserRound size={16} /> Profile
                                                 </Link>
+                                                <hr className="my-1 border-[#def0e2]" />
+                                                <Link
+                                                    href={route('customer.vouchers')}
+                                                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"
+                                                    aria-label={`Voucher${newVoucherCount > 0 ? `, ${newVoucherCount} new` : ''}`}
+                                                >
+                                                    <TicketPercent size={16} /> Voucher
+                                                    {newVoucherCount > 0 && (
+                                                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#52b788] px-1.5 text-[10px] font-bold text-white">
+                                                            {newVoucherCount > 99 ? '99+' : newVoucherCount}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                                <hr className="my-1 border-[#def0e2]" />
                                                 <Link
                                                     href={route('customer.settings')}
                                                     className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[#f5fcf7]"

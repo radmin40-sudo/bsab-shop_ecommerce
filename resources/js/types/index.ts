@@ -27,6 +27,7 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     cartCount?: number;
+    newVoucherCount?: number;
     [key: string]: unknown;
 }
 
