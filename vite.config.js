@@ -67,7 +67,6 @@ export default defineConfig({
                 globDirectory: 'public',
                 globPatterns: ['build/assets/**/*.{js,css,woff,woff2,png,svg,webp}', 'offline.html', 'pwa-icon-*.png'],
                 globIgnores: ['sw.js', 'manifest.webmanifest'],
-                additionalManifestEntries: [{ url: '/offline.html', revision: 'bsab-offline-2026-09' }],
                 maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
             },
         }),

@@ -4,7 +4,7 @@ import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type CartItem = {
     id: number;
