@@ -87,27 +87,18 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
                         <Leaf size={240} strokeWidth={1} />
                     </div>
                     <div className="relative w-full max-w-98 rounded-[30px] border border-white/75 bg-white/25 px-4 py-7 shadow-[0_24px_80px_rgba(28,83,47,.2),inset_0_1px_0_rgba(255,255,255,.9)] backdrop-blur-3xl sm:px-6 sm:py-9 lg:px-4 lg:py-8">
-                        <div className="mb-6 text-center lg:hidden">
+                        <div className="mb-7 text-center">
                             <Link
                                 href={route('home')}
-                                className="font-display inline-flex items-center gap-2 text-2xl font-bold tracking-tight text-[#14532d]"
+                                aria-label={`Return to ${brandName} home`}
+                                className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-[#159447] shadow-sm backdrop-blur-sm transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                             >
                                 {logoUrl ? (
-                                    <img src={logoUrl} alt={brandName} className="h-8 w-8 object-contain" />
+                                    <img src={logoUrl} alt={brandName} className="h-9 w-9 object-contain" />
                                 ) : (
-                                    <Sprout size={28} className="text-[#159447]" />
-                                )}{' '}
-                                {brandName}
-                            </Link>
-                        </div>
-                        <div className="mb-7 text-center">
-                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center text-[#159447]">
-                                {logoUrl ? (
-                                    <img src={logoUrl} alt={brandName} className="h-12 w-12 object-contain" />
-                                ) : (
-                                    <Sprout size={46} strokeWidth={1.6} />
+                                    <Sprout size={30} strokeWidth={1.8} />
                                 )}
-                            </div>
+                            </Link>
                             <h2 className="font-display text-[32px] leading-none font-bold tracking-[-0.04em] text-white">{title}</h2>
                             <p className="mt-3 text-[15px] text-white/85">{description}</p>
                         </div>
