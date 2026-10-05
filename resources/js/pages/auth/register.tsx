@@ -49,6 +49,7 @@ export default function Register() {
                             onChange={(e) => setData('name', e.target.value)}
                             disabled={processing}
                             placeholder="Full name"
+                            className="rounded-xl border-white/80 bg-white/30 text-[#14321f] shadow-[inset_0_1px_0_rgba(255,255,255,.75)] backdrop-blur-xl placeholder:text-[#5f856d] focus-visible:border-[#34a35f] focus-visible:bg-white/55 focus-visible:ring-[#34a35f]/20"
                         />
                         <InputError message={errors.name} className="mt-2" />
                     </div>
@@ -65,6 +66,7 @@ export default function Register() {
                             onChange={(e) => setData('email', e.target.value)}
                             disabled={processing}
                             placeholder="email@example.com"
+                            className="rounded-xl border-white/80 bg-white/30 text-[#14321f] shadow-[inset_0_1px_0_rgba(255,255,255,.75)] backdrop-blur-xl placeholder:text-[#5f856d] focus-visible:border-[#34a35f] focus-visible:bg-white/55 focus-visible:ring-[#34a35f]/20"
                         />
                         <InputError message={errors.email} />
                     </div>
@@ -81,6 +83,7 @@ export default function Register() {
                             onChange={(e) => setData('password', e.target.value)}
                             disabled={processing}
                             placeholder="Password"
+                            className="rounded-xl border-white/80 bg-white/30 text-[#14321f] shadow-[inset_0_1px_0_rgba(255,255,255,.75)] backdrop-blur-xl placeholder:text-[#5f856d] focus-visible:border-[#34a35f] focus-visible:bg-white/55 focus-visible:ring-[#34a35f]/20"
                         />
                         <InputError message={errors.password} />
                     </div>
@@ -97,6 +100,7 @@ export default function Register() {
                             onChange={(e) => setData('password_confirmation', e.target.value)}
                             disabled={processing}
                             placeholder="Confirm password"
+                            className="rounded-xl border-white/80 bg-white/30 text-[#14321f] shadow-[inset_0_1px_0_rgba(255,255,255,.75)] backdrop-blur-xl placeholder:text-[#5f856d] focus-visible:border-[#34a35f] focus-visible:bg-white/55 focus-visible:ring-[#34a35f]/20"
                         />
                         <InputError message={errors.password_confirmation} />
                     </div>

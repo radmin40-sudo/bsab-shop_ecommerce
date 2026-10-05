@@ -86,7 +86,7 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
                     <div className="pointer-events-none absolute -right-20 -bottom-20 rotate-[-35deg] text-[#c8e9bb]/60">
                         <Leaf size={240} strokeWidth={1} />
                     </div>
-                    <div className="relative w-full max-w-full rounded-[30px] border border-white/75 bg-white/25 px-4 py-7 shadow-[0_24px_80px_rgba(28,83,47,.2),inset_0_1px_0_rgba(255,255,255,.9)] backdrop-blur-3xl sm:px-6 sm:py-9 lg:px-4 lg:py-8">
+                    <div className="relative w-full max-w-98 rounded-[30px] border border-white/75 bg-white/25 px-4 py-7 shadow-[0_24px_80px_rgba(28,83,47,.2),inset_0_1px_0_rgba(255,255,255,.9)] backdrop-blur-3xl sm:px-6 sm:py-9 lg:px-4 lg:py-8">
                         <div className="mb-6 text-center lg:hidden">
                             <Link
                                 href={route('home')}
