@@ -176,6 +176,14 @@ class AdminSettingsController extends Controller
         ];
     }
 
+    public function homepage(Request $request): Response
+    {
+        return Inertia::render('admin/homepage', [
+            'siteSettings' => SiteSetting::homeSettings(),
+            'storageStatus' => SiteSetting::mediaStorageStatus(),
+        ]);
+    }
+
     public function clearCache(): RedirectResponse
     {
         if (Artisan::call('optimize:clear') !== 0) {

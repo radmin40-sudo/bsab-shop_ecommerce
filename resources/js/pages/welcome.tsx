@@ -48,6 +48,36 @@ type Product = {
     shop?: { name: string };
     images?: { path: string }[];
 };
+type FooterLink = { label: string; href: string };
+type FooterLinkGroups = {
+    quick_links: FooterLink[];
+    customer_care: FooterLink[];
+    about: FooterLink[];
+};
+type StorefrontSettings = {
+    brand_name?: string | null;
+    logo_path?: string | null;
+    hero_media_path?: string | null;
+    hero_media_type?: string | null;
+    hero_title?: string | null;
+    hero_highlight?: string | null;
+    hero_description?: string | null;
+    cta_label?: string | null;
+    feature_one?: string | null;
+    feature_two?: string | null;
+    feature_three?: string | null;
+    products_title?: string | null;
+    products_subtitle?: string | null;
+    footer_text?: string | null;
+    footer_tagline?: string | null;
+    footer_quick_links_title?: string | null;
+    footer_care_title?: string | null;
+    footer_about_title?: string | null;
+    footer_install_title?: string | null;
+    footer_install_text?: string | null;
+    footer_install_button?: string | null;
+    footer_links?: FooterLinkGroups;
+};
 const categoryColors = ['#e4efe7', '#e8eee3', '#f4e8d9', '#e4edf0', '#f1e7df', '#e8efe1'];
 
 function avatarUrl(avatar?: string) {
@@ -78,7 +108,7 @@ export default function Welcome({
 }: {
     categories?: Category[];
     products?: Product[];
-    siteSettings?: Record<string, string | null>;
+    siteSettings?: StorefrontSettings;
     query?: string;
 }) {
     const { auth, cartCount = 0, newVoucherCount = 0 } = usePage<SharedData>().props;
@@ -100,6 +130,7 @@ export default function Welcome({
     const footerQuickLinksTitle = siteSettings.footer_quick_links_title || 'Quick Links';
     const footerCareTitle = siteSettings.footer_care_title || 'Customer Care';
     const footerAboutTitle = siteSettings.footer_about_title || 'About our marketplace';
+    const footerLinks = siteSettings.footer_links;
     const [activeCategory, setActiveCategory] = useState('all');
     const [search, setSearch] = useState(query);
     const [liked, setLiked] = useState<number[]>(() => products.filter((product) => product.is_favorited).map((product) => product.id));
@@ -716,47 +747,61 @@ export default function Welcome({
                             <div>
                                 <p className="font-bold text-[#315947]">{footerQuickLinksTitle}</p>
                                 <div className="mt-2 grid gap-1.5 text-[10px]">
-                                    <Link href={route('home')} className="hover:text-[#1f7a42]">
-                                        Home
-                                    </Link>
-                                    <Link href={auth.user ? route('customer.products') : route('login')} className="hover:text-[#1f7a42]">
-                                        Products
-                                    </Link>
-                                    <Link href={auth.user ? route('customer.orders') : route('login')} className="hover:text-[#1f7a42]">
-                                        Orders
-                                    </Link>
-                                    <Link href={auth.user ? route('customer.favorites') : route('login')} className="hover:text-[#1f7a42]">
-                                        Favorites
-                                    </Link>
+                                    {(footerLinks?.quick_links ?? []).map((item, index) => {
+                                        const href = !auth.user && item.href.startsWith('/customer/') ? route('login') : item.href;
+                                        return /^https?:\/\//i.test(href) ? (
+                                            <a key={`${item.label}-${index}`} href={href} target="_blank" rel="noreferrer" className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </a>
+                                        ) : (
+                                            <Link key={`${item.label}-${index}`} href={href} className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </Link>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             <div>
                                 <p className="font-bold text-[#315947]">{footerCareTitle}</p>
                                 <div className="mt-2 grid gap-1.5 text-[10px]">
-                                    <span>Help Center</span>
-                                    <span>Shipping Info</span>
-                                    <span>Return Policy</span>
-                                    <span>Contact Us</span>
+                                    {(footerLinks?.customer_care ?? []).map((item, index) =>
+                                        /^https?:\/\//i.test(item.href) ? (
+                                            <a key={`${item.label}-${index}`} href={item.href} target="_blank" rel="noreferrer" className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </a>
+                                        ) : (
+                                            <Link key={`${item.label}-${index}`} href={item.href} className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </Link>
+                                        ),
+                                    )}
                                 </div>
                             </div>
                             <div>
                                 <p className="font-bold text-[#315947]">{footerAboutTitle}</p>
                                 <div className="mt-2 grid gap-1.5 text-[10px]">
-                                    <span>Our Story</span>
-                                    <span>Sustainability</span>
-                                    <span>Terms &amp; Conditions</span>
-                                    <span>Privacy Policy</span>
+                                    {(footerLinks?.about ?? []).map((item, index) =>
+                                        /^https?:\/\//i.test(item.href) ? (
+                                            <a key={`${item.label}-${index}`} href={item.href} target="_blank" rel="noreferrer" className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </a>
+                                        ) : (
+                                            <Link key={`${item.label}-${index}`} href={item.href} className="hover:text-[#1f7a42]">
+                                                {item.label}
+                                            </Link>
+                                        ),
+                                    )}
                                 </div>
                             </div>
                             <div>
-                                <p className="font-bold text-[#315947]">Install BSAB-SHOP</p>
-                                <p className="mt-1 text-[10px]">Add our app to your device for quick access.</p>
+                                <p className="font-bold text-[#315947]">{siteSettings.footer_install_title || 'Install BSAB-SHOP'}</p>
+                                <p className="mt-1 text-[10px]">{siteSettings.footer_install_text || 'Add our app to your device for quick access.'}</p>
                                 <button
                                     type="button"
                                     onClick={() => window.dispatchEvent(new Event('bsabshop:request-install'))}
                                     className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#258b50] px-3 text-xs font-bold text-white transition hover:bg-[#1f7a42] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#258b50]"
                                 >
-                                    <Download size={15} /> Install app
+                                    <Download size={15} /> {siteSettings.footer_install_button || 'Install app'}
                                 </button>
                             </div>
                         </div>

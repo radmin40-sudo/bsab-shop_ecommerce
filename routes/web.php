@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AdminCategoryController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminShippingController;
+use App\Http\Controllers\AdminFooterController;
 use App\Http\Controllers\AdminProductController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\AdminUserController;
@@ -14,10 +16,12 @@ use App\Http\Controllers\SellerOverviewController;
 use App\Http\Controllers\SellerProductController;
 use App\Http\Controllers\SellerShopController;
 use App\Http\Controllers\TestGeminiImageController;
+use App\Http\Controllers\FooterPageController;
 use App\Http\Controllers\VoucherManagementController;
 use App\Services\VoucherService;
 use App\Http\Middleware\RequestDeviceModelHint;
 use App\Models\Category;
+use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SiteSetting;
@@ -118,6 +122,10 @@ Route::get('/', function (Request $request) use ($storefrontProps) {
 })->name('home');
 
 Route::get('/marketplace', fn () => Inertia::render('customer/marketplace', $storefrontProps()))->name('marketplace');
+Route::post('/pages/contact-us', [FooterPageController::class, 'submitContact'])
+    ->middleware('throttle:5,1')
+    ->name('footer-pages.contact');
+Route::get('/pages/{slug}', [FooterPageController::class, 'show'])->name('footer-pages.show');
 
 Route::get('/test', [LaravelCrudTesterController::class, 'index'])->name('tester.index');
 Route::match(['get', 'post'], '/test/run', [LaravelCrudTesterController::class, 'runAll'])->name('tester.run-all');
@@ -318,8 +326,21 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/analytics', [AdminDashboardController::class, 'index'])->name('admin.analytics');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('admin.profile');
+    Route::get('/footer', [AdminFooterController::class, 'index'])->name('admin.footer');
+    Route::put('/footer', [AdminFooterController::class, 'update'])->name('admin.footer.update');
+    Route::put('/footer/pages/{slug}', [AdminFooterController::class, 'updatePage'])
+        ->whereIn('slug', ['web-dev', 'return-policy', 'privacy-policy', 'terms-conditions', 'sustainability', 'our-story', 'contact-us', 'shipping-info'])
+        ->name('admin.footer.pages.update');
+    Route::get('/shipping', [AdminShippingController::class, 'index'])->name('admin.shipping');
+    Route::post('/shipping/zones', [AdminShippingController::class, 'store'])->name('admin.shipping.zones.store');
+    Route::put('/shipping/zones/reorder', [AdminShippingController::class, 'reorder'])->name('admin.shipping.zones.reorder');
+    Route::put('/shipping/zones/{deliveryZone}', [AdminShippingController::class, 'update'])->name('admin.shipping.zones.update');
+    Route::delete('/shipping/zones/{deliveryZone}', [AdminShippingController::class, 'destroy'])->name('admin.shipping.zones.destroy');
+    Route::put('/shipping/content', [AdminShippingController::class, 'saveContent'])->name('admin.shipping.content');
     Route::get('/settings', [AdminSettingsController::class, 'index'])->middleware(RequestDeviceModelHint::class)->name('admin.settings');
-        Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('admin.vouchers');
+    Route::get('/homepage', [AdminSettingsController::class, 'homepage'])->name('admin.homepage');
+    Route::post('/homepage', [AdminSettingsController::class, 'saveHomeContent'])->name('admin.homepage.store');
+    Route::get('/vouchers', [VoucherManagementController::class, 'index'])->name('admin.vouchers');
         Route::get('/vouchers/products', [VoucherManagementController::class, 'products'])->name('admin.vouchers.products');
         Route::get('/vouchers/{voucher}', [VoucherManagementController::class, 'show'])->name('admin.vouchers.show');
         Route::post('/vouchers', [VoucherManagementController::class, 'store'])->name('admin.vouchers.store');
@@ -478,6 +499,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->group(function
     Route::get('/checkout', function (Request $request) {
         return Inertia::render('customer/checkout', [
             'selectedItemIds' => collect($request->input('selected_item_ids', []))->map(fn ($id) => (int) $id)->values()->all(),
+            'deliveryZones' => DeliveryZone::active()->get(),
+            'deliveryOptions' => SiteSetting::homeSettings()['shipping_options'],
         ]);
     })->name('customer.checkout');
     Route::get('/orders', fn () => Inertia::render('customer/orders'))->name('customer.orders');

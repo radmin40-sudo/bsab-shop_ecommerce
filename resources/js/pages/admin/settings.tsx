@@ -1,5 +1,4 @@
-import { optimizeImage } from '@/lib/image-upload';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import {
     Activity,
     Check,
@@ -8,10 +7,7 @@ import {
     FileText,
     Info,
     Laptop,
-    Loader2,
-    PencilLine,
     RefreshCw,
-    RotateCcw,
     Search,
     Server,
     ShieldAlert,
@@ -24,41 +20,9 @@ import {
     X,
     type LucideIcon,
 } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-
-type SiteSettings = {
-    brand_name?: string;
-    logo_path?: string | null;
-    login_background_path?: string | null;
-    hero_media_path?: string | null;
-    hero_media_type?: 'image' | 'video' | null;
-    hero_title?: string;
-    hero_highlight?: string;
-    hero_description?: string;
-    cta_label?: string;
-    feature_one?: string;
-    feature_two?: string;
-    feature_three?: string;
-    products_title?: string;
-    products_subtitle?: string;
-    footer_text?: string;
-    footer_tagline?: string;
-    footer_quick_links_title?: string;
-    footer_care_title?: string;
-    footer_about_title?: string;
-    footer_newsletter_title?: string;
-    footer_newsletter_text?: string;
-    newsletter_placeholder?: string;
-};
+import { FormEvent, useMemo, useState } from 'react';
 
 import { PortalLayout } from '@/components/portal-layout';
-
-type StorageStatusEntry = {
-    key: string;
-    value: string | null;
-    inDatabase: boolean;
-    existsOnDisk: boolean;
-};
 
 type AdminSettingsProps = {
     cache: { config: string; lastModified: number | null };
@@ -68,8 +32,6 @@ type AdminSettingsProps = {
         entries: LogEntry[];
         stats: Record<'activeSessions' | 'uniqueDevices' | 'uniqueIps' | 'failedLogins' | 'securityAlerts' | 'systemErrors', number>;
     };
-    siteSettings: SiteSettings;
-    storageStatus?: Record<string, StorageStatusEntry>;
 };
 
 type LogEntry = {
@@ -94,11 +56,6 @@ type LogEntry = {
     message: string;
     trace: string | null;
 };
-
-function formatBytes(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
-}
 
 function formatDate(timestamp: string | number | null) {
     if (!timestamp) return 'No activity yet';
@@ -137,79 +94,17 @@ function SeverityBadge({ severity }: { severity: LogEntry['severity'] }) {
     );
 }
 
-export default function AdminSettings({ cache, logs, siteSettings, storageStatus }: AdminSettingsProps) {
+export default function AdminSettings({ cache, logs }: AdminSettingsProps) {
     const [query, setQuery] = useState('');
     const [severity, setSeverity] = useState('all');
     const [status, setStatus] = useState('all');
     const [eventPage, setEventPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
-    const logoStorageStatus = storageStatus?.logo_path ?? {
-        key: 'logo_path',
-        value: siteSettings.logo_path ?? null,
-        inDatabase: Boolean(siteSettings.logo_path),
-        existsOnDisk: Boolean(siteSettings.logo_path),
-    };
-    const loginStorageStatus = storageStatus?.login_background_path ?? {
-        key: 'login_background_path',
-        value: siteSettings.login_background_path ?? null,
-        inDatabase: Boolean(siteSettings.login_background_path),
-        existsOnDisk: Boolean(siteSettings.login_background_path),
-    };
-    const heroStorageStatus = storageStatus?.hero_media_path ?? {
-        key: 'hero_media_path',
-        value: siteSettings.hero_media_path ?? null,
-        inDatabase: Boolean(siteSettings.hero_media_path),
-        existsOnDisk: Boolean(siteSettings.hero_media_path),
-    };
-    const [mediaUploading, setMediaUploading] = useState<'logo' | 'login_background' | 'hero_media' | null>(null);
-    const [mediaNotice, setMediaNotice] = useState<{ type: 'success' | 'error'; message: string; field: string } | null>(null);
-    const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
-    const [mediaPreviews, setMediaPreviews] = useState<Record<string, string>>({});
     const cacheForm = useForm({});
     const logsForm = useForm({});
     const categoriesForm = useForm({});
     const productsForm = useForm({});
     const ordersForm = useForm({});
-    const homeForm = useForm({
-        brand_name: siteSettings.brand_name ?? 'BSABShop',
-        logo: null as File | null,
-        login_background: null as File | null,
-        hero_media: null as File | null,
-        hero_title: siteSettings.hero_title ?? 'Best picks.',
-        hero_highlight: siteSettings.hero_highlight ?? 'Best prices.',
-        hero_description: siteSettings.hero_description ?? 'Discover products from every category, curated by our marketplace sellers.',
-        cta_label: siteSettings.cta_label ?? 'Shop now',
-        feature_one: siteSettings.feature_one ?? 'Fresh & Quality Products',
-        feature_two: siteSettings.feature_two ?? 'Trusted Sellers',
-        feature_three: siteSettings.feature_three ?? 'Fast & Safe Delivery',
-        products_title: siteSettings.products_title ?? 'Featured Products',
-        products_subtitle: siteSettings.products_subtitle ?? 'Handpicked for you. Quality products at the best prices.',
-        footer_text: siteSettings.footer_text ?? '© 2026 BSABShop Marketplace - every price, checked twice.',
-        footer_tagline: siteSettings.footer_tagline ?? 'A greener marketplace for a better tomorrow.',
-        footer_quick_links_title: siteSettings.footer_quick_links_title ?? 'Quick Links',
-        footer_care_title: siteSettings.footer_care_title ?? 'Customer Care',
-        footer_about_title: siteSettings.footer_about_title ?? 'About our marketplace',
-        footer_newsletter_title: siteSettings.footer_newsletter_title ?? 'Stay in the loop',
-        footer_newsletter_text: siteSettings.footer_newsletter_text ?? 'Get the latest deals and updates.',
-        newsletter_placeholder: siteSettings.newsletter_placeholder ?? 'Enter your email address',
-    });
-
-    useEffect(() => {
-        const files: Record<string, File | null> = {
-            logo: homeForm.data.logo,
-            login_background: homeForm.data.login_background,
-            hero_media: homeForm.data.hero_media,
-        };
-        const previews = Object.fromEntries(
-            Object.entries(files)
-                .filter((entry): entry is [string, File] => entry[1] !== null)
-                .map(([field, file]) => [field, URL.createObjectURL(file)]),
-        );
-        setMediaPreviews(previews);
-
-        return () => Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
-    }, [homeForm.data.logo, homeForm.data.login_background, homeForm.data.hero_media]);
-
     function clearCache(event: FormEvent) {
         event.preventDefault();
         cacheForm.post(route('admin.settings.cache.clear'), { preserveScroll: true });
@@ -245,112 +140,6 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
         ) {
             ordersForm.post(route('admin.settings.orders.clear'), { preserveScroll: true });
         }
-    }
-
-    function saveHomeContent(event: FormEvent) {
-        event.preventDefault();
-        homeForm.post(route('admin.settings.home-content'), {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => {
-                homeForm.setData((data) => ({ ...data, logo: null, login_background: null, hero_media: null }));
-                setMediaNotice(null);
-            },
-        });
-    }
-
-    async function uploadMedia(field: 'logo' | 'login_background' | 'hero_media', file: File | null, input?: HTMLInputElement | null) {
-        if (!file) {
-            return;
-        }
-
-        const maxBytes = field === 'hero_media' ? 20 * 1024 * 1024 : 10 * 1024 * 1024;
-        const acceptedTypes =
-            field === 'hero_media'
-                ? ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime']
-                : field === 'logo'
-                  ? ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
-                  : ['image/jpeg', 'image/png', 'image/webp'];
-        if (!acceptedTypes.includes(file.type)) {
-            setMediaNotice({ type: 'error', message: 'Choose a supported image or video file.', field });
-            if (input) input.value = '';
-            return;
-        }
-        if (file.size > maxBytes) {
-            setMediaNotice({ type: 'error', message: `The file must be ${field === 'hero_media' ? '20' : '10'} MB or smaller.`, field });
-            if (input) input.value = '';
-            return;
-        }
-
-        setMediaUploading(field);
-        setMediaNotice(null);
-
-        try {
-            const processedFile =
-                file.type.startsWith('image/') && file.type !== 'image/svg+xml'
-                    ? await optimizeImage(file, {
-                          maxWidth: field === 'logo' ? 1200 : 1600,
-                          maxHeight: field === 'logo' ? 1200 : 1000,
-                          maxBytes,
-                      })
-                    : file;
-            homeForm.setData(field, processedFile);
-            setBrokenImages((prev) => ({ ...prev, [field]: false }));
-            setMediaNotice({
-                type: 'success',
-                message: `${formatBytes(processedFile.size)} preview ready. Save homepage content to apply this change.`,
-                field,
-            });
-            if (input) input.value = '';
-        } catch {
-            setMediaNotice({
-                type: 'error',
-                message: 'Failed to process file before uploading.',
-                field,
-            });
-            if (input) {
-                input.value = '';
-            }
-        }
-        setMediaUploading(null);
-    }
-
-    function resetMedia(field: 'logo' | 'login_background' | 'hero_media') {
-        const removeKey = field === 'logo' ? 'remove_logo' : field === 'login_background' ? 'remove_login_background' : 'remove_hero_media';
-        const label = field === 'login_background' ? 'login background' : field === 'hero_media' ? 'hero media' : 'brand logo';
-
-        if (!window.confirm(`Reset ${label} to the system default?`)) {
-            return;
-        }
-
-        setMediaUploading(field);
-        setMediaNotice(null);
-
-        router.post(
-            route('admin.settings.home-content'),
-            { [removeKey]: true },
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setMediaUploading(null);
-                    setMediaNotice({
-                        type: 'success',
-                        message: `${field === 'login_background' ? 'Login background' : field === 'hero_media' ? 'Hero media' : 'Logo'} reset to default.`,
-                        field,
-                    });
-                    homeForm.setData(field, null);
-                    setBrokenImages((prev) => ({ ...prev, [field]: false }));
-                },
-                onError: () => {
-                    setMediaUploading(null);
-                    setMediaNotice({
-                        type: 'error',
-                        message: `Failed to reset ${label}.`,
-                        field,
-                    });
-                },
-            },
-        );
     }
 
     const filteredLogs = useMemo(
@@ -765,387 +554,7 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                     </div>
                 )}
 
-                <section className="mt-3 min-w-0 rounded-xl border border-[#e4ebe6] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.045)] sm:mt-4 sm:p-4">
-                    <div className="flex items-center gap-3">
-                        <span className="rounded-full bg-[#e8f5ec] p-2.5 text-[#258553]">
-                            <PencilLine size={16} />
-                        </span>
-                        <div>
-                            <h2 className="text-sm font-bold text-[#25372c]">Homepage editor</h2>
-                            <p className="mt-0.5 text-[9px] text-[#7d8b82]">Edit front page content</p>
-                        </div>
-                    </div>
-
-                    <form onSubmit={saveHomeContent} className="mt-3 grid min-w-0 gap-3">
-                        {Object.keys(homeForm.errors).length > 0 && (
-                            <div
-                                role="alert"
-                                className="rounded-lg border border-[#f0d9d5] bg-[#fff6f4] px-3 py-2 text-[10px] font-medium text-[#ad4437]"
-                            >
-                                {Object.values(homeForm.errors)[0]}
-                            </div>
-                        )}
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                Brand name
-                                <input
-                                    value={homeForm.data.brand_name}
-                                    onChange={(event) => homeForm.setData('brand_name', event.target.value)}
-                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                />
-                            </label>
-                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                Button label
-                                <input
-                                    value={homeForm.data.cta_label}
-                                    onChange={(event) => homeForm.setData('cta_label', event.target.value)}
-                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                />
-                            </label>
-                        </div>
-
-                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Brand logo
-                            <div className="flex flex-col gap-4 rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3 sm:flex-row sm:items-center">
-                                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#dfe3dc] bg-white">
-                                    {homeForm.data.logo ? (
-                                        <img src={mediaPreviews.logo} alt="Logo preview" className="h-full w-full object-cover" />
-                                    ) : siteSettings.logo_path && !brokenImages.logo ? (
-                                        <img
-                                            src={`/storage/${siteSettings.logo_path}`}
-                                            alt="Current brand logo"
-                                            onError={() => setBrokenImages((prev) => ({ ...prev, logo: true }))}
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <span className="text-2xl font-bold text-[#2c9350]">
-                                            {(homeForm.data.brand_name || 'B').slice(0, 1).toUpperCase()}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                        disabled={mediaUploading === 'logo'}
-                                        onChange={(event) => {
-                                            const input = event.target;
-                                            const file = input.files?.[0] ?? null;
-                                            uploadMedia('logo', file, input);
-                                        }}
-                                        className="w-full max-w-full text-sm"
-                                    />
-                                    {mediaUploading === 'logo' && (
-                                        <div className="flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing logo preview...
-                                        </div>
-                                    )}
-                                    {mediaNotice?.field === 'logo' && (
-                                        <div
-                                            className={`rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
-                                        >
-                                            {mediaNotice.message}
-                                        </div>
-                                    )}
-                                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
-                                        <span
-                                            className={`inline-flex items-center rounded-full px-2.5 py-1 ${logoStorageStatus.inDatabase ? (logoStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
-                                        >
-                                            {logoStorageStatus.inDatabase
-                                                ? logoStorageStatus.existsOnDisk
-                                                    ? 'Stored in database'
-                                                    : 'Missing from storage (404)'
-                                                : 'Using default logo'}
-                                        </span>
-                                        {logoStorageStatus.value && (
-                                            <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{logoStorageStatus.value}</span>
-                                        )}
-                                        {logoStorageStatus.inDatabase && (
-                                            <button
-                                                type="button"
-                                                onClick={() => resetMedia('logo')}
-                                                disabled={mediaUploading === 'logo'}
-                                                className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
-                                            >
-                                                <RotateCcw className="h-3 w-3" /> Reset to default
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Login background image
-                            <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-2 h-14 w-full overflow-hidden rounded-lg bg-white sm:h-16">
-                                    {homeForm.data.login_background ? (
-                                        <img
-                                            src={mediaPreviews.login_background}
-                                            alt="Login background preview"
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : siteSettings.login_background_path && !brokenImages.login_background ? (
-                                        <img
-                                            src={`/storage/${siteSettings.login_background_path}`}
-                                            alt="Current login background"
-                                            onError={() => setBrokenImages((prev) => ({ ...prev, login_background: true }))}
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-xs text-[#789184]">
-                                            Using the default login background
-                                        </div>
-                                    )}
-                                </div>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    disabled={mediaUploading === 'login_background'}
-                                    onChange={(event) => {
-                                        const input = event.target;
-                                        const file = input.files?.[0] ?? null;
-                                        uploadMedia('login_background', file, input);
-                                    }}
-                                    className="w-full max-w-full text-sm"
-                                />
-                                {mediaUploading === 'login_background' && (
-                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing background preview...
-                                    </div>
-                                )}
-                                {mediaNotice?.field === 'login_background' && (
-                                    <div
-                                        className={`mt-2 rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
-                                    >
-                                        {mediaNotice.message}
-                                    </div>
-                                )}
-                                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
-                                    <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${loginStorageStatus.inDatabase ? (loginStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
-                                    >
-                                        {loginStorageStatus.inDatabase
-                                            ? loginStorageStatus.existsOnDisk
-                                                ? 'Stored in database'
-                                                : 'Missing from storage (404)'
-                                            : 'Using default'}
-                                    </span>
-                                    {loginStorageStatus.value && (
-                                        <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{loginStorageStatus.value}</span>
-                                    )}
-                                    {loginStorageStatus.inDatabase && (
-                                        <button
-                                            type="button"
-                                            onClick={() => resetMedia('login_background')}
-                                            disabled={mediaUploading === 'login_background'}
-                                            className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
-                                        >
-                                            <RotateCcw className="h-3 w-3" /> Reset to default
-                                        </button>
-                                    )}
-                                </div>
-                                <p className="mt-2 text-[11px] font-normal text-[#789184]">
-                                    This image appears on the left side of the login screen. Maximum size: 10 MB.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Hero image or video
-                            <div className="rounded-xl border border-[#dfe3dc] bg-[#f7faf6] p-3">
-                                <div className="mb-2 h-14 w-full overflow-hidden rounded-lg bg-white sm:h-16">
-                                    {homeForm.data.hero_media ? (
-                                        homeForm.data.hero_media.type.startsWith('video/') ? (
-                                            <video src={mediaPreviews.hero_media} controls className="h-full w-full object-cover" />
-                                        ) : (
-                                            <img src={mediaPreviews.hero_media} alt="Hero media preview" className="h-full w-full object-cover" />
-                                        )
-                                    ) : siteSettings.hero_media_path && !brokenImages.hero_media ? (
-                                        siteSettings.hero_media_type === 'video' ? (
-                                            <video
-                                                src={`/storage/${siteSettings.hero_media_path}`}
-                                                controls
-                                                onError={() => setBrokenImages((prev) => ({ ...prev, hero_media: true }))}
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <img
-                                                src={`/storage/${siteSettings.hero_media_path}`}
-                                                alt="Current hero media"
-                                                onError={() => setBrokenImages((prev) => ({ ...prev, hero_media: true }))}
-                                                className="h-full w-full object-cover"
-                                            />
-                                        )
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-xs text-[#789184]">
-                                            No custom hero media uploaded
-                                        </div>
-                                    )}
-                                </div>
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime"
-                                    disabled={mediaUploading === 'hero_media'}
-                                    onChange={(event) => {
-                                        const input = event.target;
-                                        const file = input.files?.[0] ?? null;
-                                        uploadMedia('hero_media', file, input);
-                                    }}
-                                    className="w-full max-w-full text-sm"
-                                />
-                                {mediaUploading === 'hero_media' && (
-                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#2c9350]">
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing hero media preview...
-                                    </div>
-                                )}
-                                {mediaNotice?.field === 'hero_media' && (
-                                    <div
-                                        className={`mt-2 rounded-lg p-2 text-xs font-medium ${mediaNotice.type === 'success' ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fdf0ed] text-[#d94a38]'}`}
-                                    >
-                                        {mediaNotice.message}
-                                    </div>
-                                )}
-                                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">
-                                    <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-1 ${heroStorageStatus.inDatabase ? (heroStorageStatus.existsOnDisk ? 'bg-[#eaf6ee] text-[#287d48]' : 'bg-[#fff4df] text-[#a86618]') : 'bg-[#edf1ee] text-[#52665a]'}`}
-                                    >
-                                        {heroStorageStatus.inDatabase
-                                            ? heroStorageStatus.existsOnDisk
-                                                ? 'Stored in database'
-                                                : 'Missing from storage (404)'
-                                            : 'Using default'}
-                                    </span>
-                                    {heroStorageStatus.value && (
-                                        <span className="rounded-full bg-[#edf1ee] px-2.5 py-1 text-[#52665a]">{heroStorageStatus.value}</span>
-                                    )}
-                                    {heroStorageStatus.inDatabase && (
-                                        <button
-                                            type="button"
-                                            onClick={() => resetMedia('hero_media')}
-                                            disabled={mediaUploading === 'hero_media'}
-                                            className="inline-flex items-center gap-1 rounded-full border border-[#dfe3dc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#8b3d24] hover:bg-[#fdf2ee] disabled:opacity-50"
-                                        >
-                                            <RotateCcw className="h-3 w-3" /> Reset to default
-                                        </button>
-                                    )}
-                                </div>
-                                <p className="mt-2 text-[11px] font-normal text-[#789184]">
-                                    Upload an image or MP4/WebM/MOV video. Maximum size: 20 MB.
-                                </p>
-                            </div>
-                        </div>
-
-                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Hero title
-                            <input
-                                value={homeForm.data.hero_title}
-                                onChange={(event) => homeForm.setData('hero_title', event.target.value)}
-                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                            />
-                        </label>
-
-                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Highlight text
-                            <input
-                                value={homeForm.data.hero_highlight}
-                                onChange={(event) => homeForm.setData('hero_highlight', event.target.value)}
-                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                            />
-                        </label>
-
-                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Hero description
-                            <textarea
-                                value={homeForm.data.hero_description}
-                                onChange={(event) => homeForm.setData('hero_description', event.target.value)}
-                                rows={4}
-                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                            />
-                        </label>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            {(['feature_one', 'feature_two', 'feature_three'] as const).map((field, index) => (
-                                <label key={field} className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                    Feature {index + 1}
-                                    <input
-                                        value={homeForm.data[field]}
-                                        onChange={(event) => homeForm.setData(field, event.target.value)}
-                                        className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                    />
-                                </label>
-                            ))}
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                Products section title
-                                <input
-                                    value={homeForm.data.products_title}
-                                    onChange={(event) => homeForm.setData('products_title', event.target.value)}
-                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                />
-                            </label>
-                            <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                Products section subtitle
-                                <input
-                                    value={homeForm.data.products_subtitle}
-                                    onChange={(event) => homeForm.setData('products_subtitle', event.target.value)}
-                                    className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                />
-                            </label>
-                        </div>
-
-                        <label className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                            Footer text
-                            <textarea
-                                value={homeForm.data.footer_text}
-                                onChange={(event) => homeForm.setData('footer_text', event.target.value)}
-                                rows={3}
-                                className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                            />
-                        </label>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {(
-                                [
-                                    'footer_tagline',
-                                    'footer_quick_links_title',
-                                    'footer_care_title',
-                                    'footer_about_title',
-                                    'footer_newsletter_title',
-                                    'footer_newsletter_text',
-                                    'newsletter_placeholder',
-                                ] as const
-                            ).map((field) => (
-                                <label key={field} className="grid w-full gap-2 text-sm font-semibold text-[#173b27]">
-                                    {field.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}
-                                    <input
-                                        value={homeForm.data[field]}
-                                        onChange={(event) => homeForm.setData(field, event.target.value)}
-                                        className="w-full border border-[#dfe3dc] px-3 py-2.5 outline-none focus:border-[#2c9350]"
-                                    />
-                                </label>
-                            ))}
-                        </div>
-
-                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                            <button
-                                type="submit"
-                                disabled={homeForm.processing}
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#188747] px-3.5 py-2 text-[10px] font-semibold text-white hover:bg-[#126d39] disabled:opacity-50 sm:w-auto"
-                            >
-                                <Check size={15} /> {homeForm.processing ? 'Saving...' : 'Save homepage content'}
-                            </button>
-                            {homeForm.recentlySuccessful && (
-                                <span role="status" className="text-[10px] font-semibold text-[#23824a]">
-                                    Homepage content saved successfully.
-                                </span>
-                            )}
-                        </div>
-                    </form>
-
-                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
                         <div className="rounded-xl border border-[#e4ebe6] bg-white p-3 shadow-[0_3px_13px_rgba(31,70,48,0.035)]">
                             <div className="flex items-center gap-3">
                                 <span className="rounded-lg bg-white p-2 text-[#1f7a42]">
@@ -1234,7 +643,6 @@ export default function AdminSettings({ cache, logs, siteSettings, storageStatus
                             </form>
                         </div>
                     </div>
-                </section>
             </PortalLayout>
         </>
     );
