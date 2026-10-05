@@ -43,7 +43,7 @@ type CartData = {
 type DeliveryZone = {
     id: number;
     name: string;
-    barangay: string;
+    barangay: string | null;
     delivery_fee: string;
     is_free_delivery: boolean;
     free_delivery_minimum: string | null;
@@ -69,6 +69,10 @@ const emptyAddress: AddressForm = {
     postal_code: '',
 };
 const stepLabels = ['Cart', 'Shipping', 'Payment', 'Review'];
+
+function normalizeBarangay(value: string | null | undefined) {
+    return value?.trim().toLowerCase() ?? '';
+}
 
 function formatPrice(value: number) {
     return `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
@@ -270,7 +274,10 @@ export default function CustomerCheckout() {
 
     const selectedItems = useMemo(() => items.filter((item) => selectedItemIds.includes(item.id)), [items, selectedItemIds]);
     const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
-    const selectedZone = deliveryZones.find((zone) => zone.barangay.trim().toLowerCase() === address.barangay.trim().toLowerCase());
+    const addressBarangay = normalizeBarangay(address.barangay);
+    const selectedZone = addressBarangay
+        ? deliveryZones.find((zone) => normalizeBarangay(zone.barangay) === addressBarangay)
+        : undefined;
     const qualifiesForFreeDelivery = Boolean(
         selectedZone?.is_free_delivery && (selectedZone.free_delivery_minimum === null || subtotal >= Number(selectedZone.free_delivery_minimum)),
     );
@@ -312,6 +319,7 @@ export default function CustomerCheckout() {
                 setAddress({
                     ...emptyAddress,
                     ...saved,
+                    barangay: saved?.barangay || '',
                     full_name: saved?.full_name || user.name || '',
                     phone: saved?.phone || user.phone || '',
                     city: 'Hinoba-an',
