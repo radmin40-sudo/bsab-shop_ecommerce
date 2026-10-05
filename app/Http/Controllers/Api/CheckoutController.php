@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
+use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\Shop;
+use App\Models\SiteSetting;
 use App\Models\Voucher;
 use App\Services\ImageOptimizationService;
 use App\Services\VoucherService;
@@ -36,11 +38,14 @@ class CheckoutController extends Controller
             'shipping_address.full_name' => 'required|string|max:255',
             'shipping_address.phone' => 'required|string|max:50',
             'shipping_address.line1' => 'required|string|max:255',
+            'shipping_address.barangay' => 'required|string|max:150',
+            'shipping_address.house_number' => 'nullable|string|max:255',
+            'shipping_address.delivery_instructions' => 'nullable|string|max:1000',
             'shipping_address.city' => 'required|string|max:255',
             'shipping_address.province' => 'required|string|max:255',
-            'shipping_address.postal_code' => 'required|string|max:20',
+            'shipping_address.postal_code' => 'nullable|string|max:20',
             'payment_method' => 'required|string|in:cash_on_delivery,gcash',
-            'shipping_method' => 'nullable|string|in:standard,express',
+            'delivery_option' => 'required|string|in:local_delivery,seller_delivery,pickup',
             'selected_item_ids' => 'nullable|array|min:1',
             'selected_item_ids.*' => 'integer|distinct',
             'gcash_receipt' => ['nullable', 'required_if:payment_method,gcash', 'file', 'image', 'max:'.config('images.max_upload_kb')],
@@ -61,6 +66,33 @@ class CheckoutController extends Controller
             $checkoutItems = $cart->items->whereIn('id', $items)->values();
             abort_if($checkoutItems->isEmpty(), 422, 'Select at least one cart item.');
 
+            $address = $validated['shipping_address'];
+            abort_unless(
+                mb_strtolower(trim($address['city'])) === 'hinoba-an'
+                    && mb_strtolower(trim($address['province'])) === 'negros occidental',
+                422,
+                'Checkout is currently available only in Hinoba-an, Negros Occidental.'
+            );
+
+            $zone = DeliveryZone::query()
+                ->active()
+                ->whereRaw('LOWER(barangay) = ?', [mb_strtolower(trim($address['barangay']))])
+                ->first();
+            abort_unless(
+                $zone,
+                422,
+                DeliveryZone::active()->exists()
+                    ? 'This barangay does not match an active delivery zone. Please contact support.'
+                    : 'Checkout is unavailable until an active delivery zone and delivery fee are configured.'
+            );
+
+            $deliveryOptions = SiteSetting::homeSettings()['shipping_options'];
+            abort_unless(
+                (bool) ($deliveryOptions[$validated['delivery_option']] ?? false),
+                422,
+                'This delivery option is currently unavailable.'
+            );
+
             if ($validated['payment_method'] === 'gcash') {
                 $shopIds = $checkoutItems->pluck('product.shop_id')->filter()->unique()->values();
 
@@ -79,11 +111,19 @@ class CheckoutController extends Controller
             $voucher = $cart->voucher ? Voucher::query()->lockForUpdate()->findOrFail($cart->voucher_id) : null;
             $voucherQuote = $voucher ? $vouchers->quote($voucher, $request->user(), $checkoutItems) : null;
             $discount = $voucherQuote['discount'] ?? 0;
-            $shippingFee = ($validated['shipping_method'] ?? 'standard') === 'express' ? 99 : 0;
+            $freeByThreshold = $zone->is_free_delivery
+                && ($zone->free_delivery_minimum === null || $subtotal >= (float) $zone->free_delivery_minimum);
+            $shippingFee = $validated['delivery_option'] === 'pickup' || $freeByThreshold
+                ? 0
+                : (float) $zone->delivery_fee;
             if ($voucherQuote['free_shipping'] ?? false) {
                 $shippingFee = 0;
             }
             $total = max(0, $subtotal + $shippingFee - $discount);
+            $address['delivery_zone_id'] = $zone->id;
+            $address['delivery_zone_name'] = $zone->name;
+            $address['delivery_estimate'] = $zone->estimated_delivery_text;
+            $address['delivery_option'] = $validated['delivery_option'];
 
             $order = Order::create([
                 'order_number' => 'CG-'.now()->format('ymd').'-'.Str::upper(Str::random(6)),
@@ -95,7 +135,7 @@ class CheckoutController extends Controller
                 'voucher_code_snapshot' => $voucher?->code,
                 'voucher_name_snapshot' => $voucher?->name,
                 'total' => $total,
-                'shipping_address' => $validated['shipping_address'],
+                'shipping_address' => $address,
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => 'pending',
             ]);

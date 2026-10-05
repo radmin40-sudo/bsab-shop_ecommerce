@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Category;
+use App\Models\DeliveryZone;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ProductVariantService;
@@ -329,6 +330,13 @@ class SellerProductOptionVariantGenerationTest extends TestCase
             'quantity' => 1,
             'price_snapshot' => 90.00,
         ]);
+        DeliveryZone::create([
+            'name' => 'Hinoba-an Poblacion',
+            'barangay' => 'Poblacion',
+            'delivery_fee' => 0,
+            'estimated_delivery_text' => 'Same day–2 days',
+            'status' => 'active',
+        ]);
 
         Storage::fake('public');
 
@@ -337,12 +345,14 @@ class SellerProductOptionVariantGenerationTest extends TestCase
                 'shipping_address' => json_encode([
                     'full_name' => 'Test Customer',
                     'phone' => '09171234567',
+                    'barangay' => 'Poblacion',
                     'line1' => '123 Main Street',
-                    'city' => 'Pasig',
-                    'province' => 'Metro Manila',
-                    'postal_code' => '1600',
+                    'city' => 'Hinoba-an',
+                    'province' => 'Negros Occidental',
+                    'postal_code' => '6114',
                 ]),
                 'payment_method' => 'gcash',
+                'delivery_option' => 'local_delivery',
                 'gcash_receipt' => UploadedFile::fake()->create('receipt.png', 64, 'image/png'),
             ]);
 

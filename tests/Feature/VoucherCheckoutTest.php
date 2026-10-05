@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Category;
+use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shop;
@@ -46,6 +47,7 @@ class VoucherCheckoutTest extends TestCase
         $cart = Cart::create(['user_id' => $customer->id]);
         CartItem::create(['cart_id' => $cart->id, 'product_id' => $eligible->id, 'quantity' => 1, 'price_snapshot' => 1599]);
         CartItem::create(['cart_id' => $cart->id, 'product_id' => $other->id, 'quantity' => 1, 'price_snapshot' => 999]);
+        $this->makeDeliveryZone();
 
         $this->actingAs($customer, 'sanctum')
             ->postJson('/api/customer/cart/voucher', ['code' => 'BSAB100'])
@@ -55,10 +57,10 @@ class VoucherCheckoutTest extends TestCase
 
         $response = $this->postJson('/api/customer/checkout', [
             'shipping_address' => [
-                'full_name' => 'Test Customer', 'phone' => '09171234567', 'line1' => '123 Main Street',
-                'city' => 'Pasig', 'province' => 'Metro Manila', 'postal_code' => '1600',
+                ...$this->shippingAddress(),
             ],
             'payment_method' => 'cash_on_delivery',
+            'delivery_option' => 'local_delivery',
         ]);
 
         $response->assertCreated()->assertJsonStructure(['id', 'order_number']);
@@ -75,7 +77,7 @@ class VoucherCheckoutTest extends TestCase
         ]);
     }
 
-    public function test_free_shipping_voucher_waives_express_shipping_on_checkout(): void
+    public function test_free_shipping_voucher_waives_configured_zone_delivery_fee(): void
     {
         Role::findOrCreate('customer', 'web');
         $customer = User::factory()->create();
@@ -97,6 +99,7 @@ class VoucherCheckoutTest extends TestCase
         ]);
         $cart = Cart::create(['user_id' => $customer->id]);
         CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'quantity' => 1, 'price_snapshot' => 500]);
+        $this->makeDeliveryZone('75.50');
 
         $this->actingAs($customer, 'sanctum')
             ->postJson('/api/customer/cart/voucher', ['code' => 'BSABSHIP'])
@@ -105,11 +108,10 @@ class VoucherCheckoutTest extends TestCase
 
         $this->postJson('/api/customer/checkout', [
             'shipping_address' => [
-                'full_name' => 'Test Customer', 'phone' => '09171234567', 'line1' => '123 Main Street',
-                'city' => 'Pasig', 'province' => 'Metro Manila', 'postal_code' => '1600',
+                ...$this->shippingAddress(),
             ],
             'payment_method' => 'cash_on_delivery',
-            'shipping_method' => 'express',
+            'delivery_option' => 'local_delivery',
         ])->assertCreated();
 
         $order = Order::query()->where('user_id', $customer->id)->firstOrFail();
@@ -141,14 +143,15 @@ class VoucherCheckoutTest extends TestCase
             'quantity' => 1,
             'price_snapshot' => 800,
         ]);
+        $this->makeDeliveryZone();
 
         $this->actingAs($customer, 'sanctum')
             ->postJson('/api/customer/checkout', [
                 'shipping_address' => [
-                    'full_name' => 'Test Customer', 'phone' => '09171234567', 'line1' => '123 Main Street',
-                    'city' => 'Pasig', 'province' => 'Metro Manila', 'postal_code' => '1600',
+                    ...$this->shippingAddress(),
                 ],
                 'payment_method' => 'cash_on_delivery',
+                'delivery_option' => 'local_delivery',
                 'selected_item_ids' => [$selectedItem->id],
             ])
             ->assertCreated()
@@ -165,6 +168,109 @@ class VoucherCheckoutTest extends TestCase
         ]);
         $this->assertDatabaseMissing('cart_items', ['id' => $selectedItem->id]);
         $this->assertDatabaseHas('cart_items', ['id' => $unselectedItem->id]);
+    }
+
+    public function test_checkout_uses_configured_zone_fee_and_free_delivery_minimum(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $seller = User::factory()->create();
+        $shop = Shop::create(['user_id' => $seller->id, 'name' => 'Local Shop', 'slug' => 'local-shop']);
+        $category = Category::create(['name' => 'Farm', 'slug' => 'farm-local']);
+        $product = $this->makeProduct($shop, $category, 'Seeds', '800.00');
+        $cart = Cart::create(['user_id' => $customer->id]);
+        CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'quantity' => 1, 'price_snapshot' => 800]);
+        $this->makeDeliveryZone('37.25', false, 1000);
+
+        $response = $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => $this->shippingAddress(),
+                'payment_method' => 'cash_on_delivery',
+                'delivery_option' => 'local_delivery',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('shipping_fee', '37.25')
+            ->assertJsonPath('total', '837.25');
+
+        $order = Order::query()->where('user_id', $customer->id)->firstOrFail();
+        $this->assertSame('Hinoba-an Poblacion', $order->shipping_address['delivery_zone_name']);
+        $this->assertSame('Poblacion', $order->shipping_address['barangay']);
+        $response->assertJsonPath('shipping_address.delivery_option', 'local_delivery');
+    }
+
+    public function test_configured_free_delivery_minimum_waives_local_delivery_fee(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $seller = User::factory()->create();
+        $shop = Shop::create(['user_id' => $seller->id, 'name' => 'Local Shop', 'slug' => 'local-shop-threshold']);
+        $category = Category::create(['name' => 'Farm', 'slug' => 'farm-threshold']);
+        $product = $this->makeProduct($shop, $category, 'Seedling Tray', '1200.00');
+        $cart = Cart::create(['user_id' => $customer->id]);
+        CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'quantity' => 1, 'price_snapshot' => 1200]);
+        $this->makeDeliveryZone('37.25', true, 1000);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => $this->shippingAddress(),
+                'payment_method' => 'cash_on_delivery',
+                'delivery_option' => 'local_delivery',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('shipping_fee', '0.00')
+            ->assertJsonPath('total', '1200.00');
+    }
+
+    public function test_checkout_rejects_unsupported_delivery_barangays(): void
+    {
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $seller = User::factory()->create();
+        $shop = Shop::create(['user_id' => $seller->id, 'name' => 'Zone Shop', 'slug' => 'zone-shop']);
+        $category = Category::create(['name' => 'Farm', 'slug' => 'farm-zone']);
+        $product = $this->makeProduct($shop, $category, 'Tools', '100.00');
+        $cart = Cart::create(['user_id' => $customer->id]);
+        CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'quantity' => 1, 'price_snapshot' => 100]);
+        $this->makeDeliveryZone();
+
+        $address = $this->shippingAddress();
+        $address['barangay'] = 'Unsupported Barangay';
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => $address,
+                'payment_method' => 'cash_on_delivery',
+                'delivery_option' => 'local_delivery',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'This barangay does not match an active delivery zone. Please contact support.');
+    }
+
+    public function test_checkout_explains_when_no_delivery_zones_are_configured(): void
+    {
+        DeliveryZone::query()->delete();
+
+        Role::findOrCreate('customer', 'web');
+        $customer = User::factory()->create();
+        $customer->assignRole('customer');
+        $seller = User::factory()->create();
+        $shop = Shop::create(['user_id' => $seller->id, 'name' => 'No Zone Shop', 'slug' => 'no-zone-shop']);
+        $category = Category::create(['name' => 'Farm', 'slug' => 'farm-no-zone']);
+        $product = $this->makeProduct($shop, $category, 'No Zone Seeds', '100.00');
+        $cart = Cart::create(['user_id' => $customer->id]);
+        CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'quantity' => 1, 'price_snapshot' => 100]);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/customer/checkout', [
+                'shipping_address' => $this->shippingAddress(),
+                'payment_method' => 'cash_on_delivery',
+                'delivery_option' => 'local_delivery',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Checkout is unavailable until an active delivery zone and delivery fee are configured.');
     }
 
     public function test_customer_menu_badge_counts_only_unclaimed_available_vouchers(): void
@@ -236,6 +342,32 @@ class VoucherCheckoutTest extends TestCase
             'status' => 'published',
             'is_active' => true,
             'is_approved' => true,
+        ]);
+    }
+
+    private function shippingAddress(): array
+    {
+        return [
+            'full_name' => 'Test Customer',
+            'phone' => '09171234567',
+            'barangay' => 'Poblacion',
+            'line1' => '123 Main Street',
+            'city' => 'Hinoba-an',
+            'province' => 'Negros Occidental',
+            'postal_code' => '6114',
+        ];
+    }
+
+    private function makeDeliveryZone(string $fee = '0.00', bool $isFreeDelivery = false, ?float $minimum = null): DeliveryZone
+    {
+        return DeliveryZone::create([
+            'name' => 'Hinoba-an Poblacion',
+            'barangay' => 'Poblacion',
+            'delivery_fee' => $fee,
+            'is_free_delivery' => $isFreeDelivery,
+            'free_delivery_minimum' => $minimum,
+            'estimated_delivery_text' => 'Same day–2 days',
+            'status' => 'active',
         ]);
     }
 }

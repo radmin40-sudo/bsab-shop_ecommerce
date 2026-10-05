@@ -46,12 +46,21 @@ const quickLinks = [
 ];
 
 export default function CustomerProfile() {
-    const { auth, address, avatarUrl, cartCount = 0, siteSettings = {} } = usePage<
+    const { auth, address, avatarUrl, cartCount = 0, siteSettings = {}, deliveryZones = [] } = usePage<
         SharedData & {
-            address?: { full_name: string; phone: string; line1: string; city: string; province: string; postal_code: string };
+            address?: {
+                full_name: string;
+                phone: string;
+                line1: string;
+                barangay?: string | null;
+                city: string;
+                province: string;
+                postal_code: string;
+            };
             avatarUrl?: string | null;
             cartCount?: number;
             siteSettings?: Record<string, string | null>;
+            deliveryZones?: { id: number; name: string; barangay: string }[];
         }
     >().props;
     const user = auth.user;
@@ -71,8 +80,9 @@ export default function CustomerProfile() {
             full_name: address?.full_name ?? user?.name ?? '',
             phone: address?.phone ?? (user?.phone as string | undefined) ?? '',
             line1: address?.line1 ?? '',
-            city: address?.city ?? '',
-            province: address?.province ?? '',
+            barangay: address?.barangay ?? '',
+            city: 'Hinoba-an',
+            province: 'Negros Occidental',
             postal_code: address?.postal_code ?? '',
         },
     });
@@ -139,7 +149,7 @@ export default function CustomerProfile() {
         event.preventDefault();
         transform((formData) => ({
             ...formData,
-            address: Object.values(formData.address).some(Boolean) ? formData.address : undefined,
+            address: undefined,
         }));
         post(route('profile.update'), { forceFormData: true, preserveScroll: true, onSuccess: () => setIsEditing(false) });
     }
@@ -544,13 +554,6 @@ export default function CustomerProfile() {
                                                     onChange={(value) => setData('email', value)}
                                                     error={errors.email}
                                                 />
-                                                <ProfileField
-                                                    label="Phone Number"
-                                                    value={data.phone}
-                                                    editable={isEditing}
-                                                    onChange={(value) => setData('phone', value)}
-                                                    error={errors.phone}
-                                                />
                                             </div>
                                         </div>
                                         <div className="mt-6 border-t border-[#e5eee7] pt-4">
@@ -680,17 +683,34 @@ export default function CustomerProfile() {
                                                         onChange={(value) => setData('address', { ...data.address, line1: value })}
                                                         error={errors['address.line1']}
                                                     />
+                                                    <label className="block text-xs font-semibold text-[#5c6e63]">
+                                                        Barangay / Delivery Zone
+                                                        <input
+                                                            type="text"
+                                                            value={data.address.barangay}
+                                                            readOnly
+                                                            required={isEditingAddress}
+                                                            placeholder="Choose a location on the map"
+                                                            className="mt-1.5 w-full rounded-xl border border-[#e5eee7] bg-[#f8fcf8] px-3.5 py-2.5 text-xs text-[#173b2a] outline-none"
+                                                        />
+                                                        {isEditingAddress && (
+                                                            <span className="mt-1 block text-[10px] font-normal text-[#647568]">
+                                                                Select a location on the map to detect its barangay.
+                                                            </span>
+                                                        )}
+                                                        <InputError message={errors['address.barangay']} className="mt-1" />
+                                                    </label>
                                                     <ProfileField
                                                         label="City"
                                                         value={data.address.city}
-                                                        editable={isEditingAddress}
+                                                        editable={false}
                                                         onChange={(value) => setData('address', { ...data.address, city: value })}
                                                         error={errors['address.city']}
                                                     />
                                                     <ProfileField
                                                         label="Province"
                                                         value={data.address.province}
-                                                        editable={isEditingAddress}
+                                                        editable={false}
                                                         onChange={(value) => setData('address', { ...data.address, province: value })}
                                                         error={errors['address.province']}
                                                     />
@@ -1022,10 +1042,12 @@ export default function CustomerProfile() {
                 isOpen={isMapPickerOpen}
                 onClose={() => setIsMapPickerOpen(false)}
                 initialAddress={data.address}
+                deliveryBarangays={deliveryZones.map((zone) => zone.barangay)}
                 onSelectLocation={(loc) => {
                     setData('address', {
                         ...data.address,
                         line1: loc.line1 || data.address.line1,
+                        barangay: loc.barangay,
                         city: loc.city || data.address.city,
                         province: loc.province || data.address.province,
                         postal_code: loc.postal_code || data.address.postal_code,

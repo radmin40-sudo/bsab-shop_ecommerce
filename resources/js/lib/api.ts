@@ -58,7 +58,7 @@ export async function removeCartItem(itemId: number) {
 export async function checkoutCart(payload: {
     shipping_address: Record<string, string>;
     payment_method: string;
-    shipping_method?: 'standard' | 'express';
+    delivery_option: 'local_delivery' | 'seller_delivery' | 'pickup';
     selected_item_ids?: number[];
     gcash_receipt?: File | null;
 }): Promise<{ id: number; order_number: string }> {
@@ -68,7 +68,7 @@ export async function checkoutCart(payload: {
         const formData = new FormData();
         formData.append('shipping_address', JSON.stringify(payload.shipping_address));
         formData.append('payment_method', payload.payment_method);
-        if (payload.shipping_method) formData.append('shipping_method', payload.shipping_method);
+        formData.append('delivery_option', payload.delivery_option);
         if (payload.selected_item_ids) {
             formData.append('selected_item_ids', JSON.stringify(payload.selected_item_ids));
         }

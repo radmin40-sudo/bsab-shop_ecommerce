@@ -32,11 +32,13 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-button {
-    font-family: inherit;
-    cursor: pointer;
-    border: none;
-    background: none;
+@layer base {
+    button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+    }
 }
 
 input {

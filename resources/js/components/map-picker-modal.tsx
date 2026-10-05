@@ -1,10 +1,11 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Check, Crosshair, Loader2, MapPin, Search, X } from 'lucide-react';
+import { AlertCircle, Check, Crosshair, Loader2, MapPin, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface SelectedLocation {
     line1: string;
+    barangay: string;
     city: string;
     province: string;
     postal_code: string;
@@ -18,10 +19,12 @@ interface MapPickerModalProps {
     onClose: () => void;
     initialAddress?: {
         line1?: string;
+        barangay?: string | null;
         city?: string;
         province?: string;
         postal_code?: string;
     };
+    deliveryBarangays?: string[];
     onSelectLocation: (location: SelectedLocation) => void;
 }
 
@@ -41,7 +44,30 @@ const createCustomPinIcon = () =>
         iconAnchor: [0, 0],
     });
 
-export default function MapPickerModal({ isOpen, onClose, initialAddress, onSelectLocation }: MapPickerModalProps) {
+function isHinobaAnAddress(address: Record<string, string | undefined>) {
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z]/g, '');
+    const localities = [address.city, address.town, address.municipality, address.village, address.county, address.city_district]
+        .filter((value): value is string => Boolean(value))
+        .map(normalize);
+    const provinces = [address.province, address.state, address.region]
+        .filter((value): value is string => Boolean(value))
+        .map(normalize);
+
+    return (
+        localities.includes('hinobaan') &&
+        (provinces.includes('negrosoccidental') || provinces.includes('negrosislandregion'))
+    );
+}
+
+function normalizeBarangay(value: string) {
+    return value.toLowerCase().replace(/^barangay\s+/i, '').replace(/[^a-z0-9]/g, '');
+}
+
+function getBarangay(address: Record<string, string | undefined>) {
+    return address.barangay || address.suburb || address.neighbourhood || address.quarter || address.city_district || address.hamlet || '';
+}
+
+export default function MapPickerModal({ isOpen, onClose, initialAddress, deliveryBarangays, onSelectLocation }: MapPickerModalProps) {
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markerRef = useRef<L.Marker | null>(null);
@@ -50,16 +76,19 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
     const [isSearching, setIsSearching] = useState(false);
     const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSupportedLocation, setIsSupportedLocation] = useState(false);
+    const [isSupportedBarangay, setIsSupportedBarangay] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<SelectedLocation>({
         line1: initialAddress?.line1 || '',
+        barangay: initialAddress?.barangay || '',
         city: initialAddress?.city || '',
         province: initialAddress?.province || '',
         postal_code: initialAddress?.postal_code || '',
-        formatted: [initialAddress?.line1, initialAddress?.city, initialAddress?.province, initialAddress?.postal_code]
+        formatted: [initialAddress?.line1, initialAddress?.barangay, initialAddress?.city, initialAddress?.province, initialAddress?.postal_code]
             .filter(Boolean)
             .join(', ') || 'Philippines',
-        lat: 14.5995,
-        lng: 120.9842,
+        lat: 9.6021766,
+        lng: 122.4670994,
     });
 
     // Reverse geocode lat/lng to address parts via OpenStreetMap Nominatim
@@ -77,6 +106,11 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
             if (!response.ok) throw new Error('Geocoding failed');
             const data = await response.json();
             const addr = data.address || {};
+            const isSupported = isHinobaAnAddress(addr);
+            const rawBarangay = getBarangay(addr);
+            const matchedBarangay = deliveryBarangays?.find(
+                (barangay) => normalizeBarangay(barangay) === normalizeBarangay(rawBarangay),
+            );
 
             const streetNumber = addr.house_number || '';
             const road = addr.road || addr.street || addr.pedestrian || addr.suburb || addr.neighbourhood || '';
@@ -89,20 +123,28 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
 
             setSelectedLocation({
                 line1,
-                city,
-                province,
+                barangay: matchedBarangay || rawBarangay,
+                city: isSupported ? 'Hinoba-an' : city,
+                province: isSupported ? 'Negros Occidental' : province,
                 postal_code,
                 formatted,
                 lat,
                 lng,
             });
+            setIsSupportedLocation(isSupported);
+            setIsSupportedBarangay(Boolean(rawBarangay));
         } catch {
             setSelectedLocation((prev) => ({
                 ...prev,
+                barangay: '',
+                city: '',
+                province: '',
                 lat,
                 lng,
                 formatted: `Location (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
             }));
+            setIsSupportedLocation(false);
+            setIsSupportedBarangay(false);
         } finally {
             setIsReverseGeocoding(false);
         }
@@ -180,8 +222,8 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
         const timer = setTimeout(() => {
             if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-            const initialLat = 14.5995;
-            const initialLng = 120.9842;
+            const initialLat = 9.6021766;
+            const initialLng = 122.4670994;
 
             const map = L.map(mapContainerRef.current, {
                 center: [initialLat, initialLng],
@@ -216,7 +258,7 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
             markerRef.current = marker;
 
             // If initial address exists, search and locate it
-            const addressString = [initialAddress?.line1, initialAddress?.city, initialAddress?.province]
+            const addressString = [initialAddress?.line1, initialAddress?.barangay, initialAddress?.city, initialAddress?.province]
                 .filter(Boolean)
                 .join(', ');
 
@@ -381,13 +423,25 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                                 Selected Location
                             </span>
                             <p className="mt-0.5 truncate text-xs font-bold text-[#145437] sm:text-sm">
-                                {selectedLocation.line1 || selectedLocation.city || 'No specific street detected'}
+                                {selectedLocation.line1 || selectedLocation.barangay || selectedLocation.city || 'No specific street detected'}
                             </p>
                             <p className="truncate text-[11px] text-[#5d7768]">
-                                {[selectedLocation.city, selectedLocation.province, selectedLocation.postal_code]
+                                {[selectedLocation.barangay, selectedLocation.city, selectedLocation.province, selectedLocation.postal_code]
                                     .filter(Boolean)
                                     .join(', ') || selectedLocation.formatted}
                             </p>
+                            {!isSupportedLocation && (
+                                <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#b3413a]">
+                                    <AlertCircle size={12} />
+                                    Choose a location within Hinoba-an, Negros Occidental.
+                                </p>
+                            )}
+                            {isSupportedLocation && !isSupportedBarangay && (
+                                <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#b3413a]">
+                                    <AlertCircle size={12} />
+                                    Move the pin to a location with a detected barangay.
+                                </p>
+                            )}
                         </div>
                         <div className="flex items-center justify-end gap-2 shrink-0">
                             <button
@@ -399,11 +453,12 @@ export default function MapPickerModal({ isOpen, onClose, initialAddress, onSele
                             </button>
                             <button
                                 type="button"
+                                disabled={!isSupportedLocation || !isSupportedBarangay || isReverseGeocoding}
                                 onClick={() => {
                                     onSelectLocation(selectedLocation);
                                     onClose();
                                 }}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-[#23834b] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#23834b]/20 hover:bg-[#186a3a] transition focus-visible:outline-2 focus-visible:outline-[#23834b]"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-[#23834b] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#23834b]/20 transition hover:bg-[#186a3a] focus-visible:outline-2 focus-visible:outline-[#23834b] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Check size={14} strokeWidth={2.5} />
                                 <span>Confirm Address</span>

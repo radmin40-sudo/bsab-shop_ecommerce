@@ -500,7 +500,7 @@ export default function ResponsiveProductDetail({
                             </div>
                         </div>
 
-                        <div className="flex min-w-0 flex-col px-1 py-1 md:px-2 md:py-2">
+                        <div className="flex min-w-0 flex-col rounded-2xl border border-[#e5efe7] bg-[#fbfefb] p-4 sm:p-5 xl:p-6">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <p className="text-xs font-semibold text-[#427151]">

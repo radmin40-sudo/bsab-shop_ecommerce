@@ -16,6 +16,8 @@ class AdminShippingManagementTest extends TestCase
 
     public function test_admin_can_manage_delivery_zones_options_and_steps(): void
     {
+        DeliveryZone::query()->delete();
+
         Role::findOrCreate('admin', 'web');
         $admin = User::factory()->create();
         $admin->assignRole('admin');
@@ -120,6 +122,8 @@ class AdminShippingManagementTest extends TestCase
 
     public function test_public_shipping_page_hides_inactive_delivery_zones(): void
     {
+        DeliveryZone::query()->delete();
+
         DeliveryZone::create([
             'name' => 'Disabled area',
             'barangay' => 'Disabled',

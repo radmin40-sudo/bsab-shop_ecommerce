@@ -1,5 +1,5 @@
 import { PortalLayout } from '@/components/portal-layout';
-import { api, checkoutCart, currentUser, prepareSanctum } from '@/lib/api';
+import { api, checkoutCart, currentUser, getApiErrorMessage, prepareSanctum } from '@/lib/api';
 import { optimizeImage } from '@/lib/image-upload';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -7,7 +7,17 @@ import { ArrowLeft, ArrowRight, Check, Minus, PackageCheck, Plus, ShieldCheck, S
 import { useEffect, useMemo, useState } from 'react';
 
 type CheckoutStep = 'cart' | 'shipping' | 'payment' | 'review' | 'success';
-type AddressForm = { full_name: string; phone: string; line1: string; city: string; province: string; postal_code: string };
+type AddressForm = {
+    full_name: string;
+    phone: string;
+    barangay: string;
+    line1: string;
+    house_number: string;
+    delivery_instructions: string;
+    city: string;
+    province: string;
+    postal_code: string;
+};
 type CartItem = {
     id: number;
     quantity: number;
@@ -30,10 +40,34 @@ type CartData = {
     voucher?: { id: number; code: string; name: string } | null;
     voucher_quote?: { code: string; discount: number; eligible_subtotal: number; free_shipping: boolean } | null;
 };
-type CheckoutProps = { selectedItemIds?: number[] };
+type DeliveryZone = {
+    id: number;
+    name: string;
+    barangay: string;
+    delivery_fee: string;
+    is_free_delivery: boolean;
+    free_delivery_minimum: string | null;
+    estimated_delivery_text: string;
+};
+type DeliveryOption = 'local_delivery' | 'seller_delivery' | 'pickup';
+type CheckoutProps = {
+    selectedItemIds?: number[];
+    deliveryZones: DeliveryZone[];
+    deliveryOptions: Record<DeliveryOption, boolean>;
+};
 type CheckoutOrder = { id: number; order_number: string };
 
-const emptyAddress: AddressForm = { full_name: '', phone: '', line1: '', city: '', province: '', postal_code: '' };
+const emptyAddress: AddressForm = {
+    full_name: '',
+    phone: '',
+    barangay: '',
+    line1: '',
+    house_number: '',
+    delivery_instructions: '',
+    city: 'Hinoba-an',
+    province: 'Negros Occidental',
+    postal_code: '',
+};
 const stepLabels = ['Cart', 'Shipping', 'Payment', 'Review'];
 
 function formatPrice(value: number) {
@@ -74,7 +108,7 @@ function ProgressStepper({ step }: { step: CheckoutStep }) {
 function OrderSummary({
     items,
     subtotal,
-    shippingCost,
+    shippingLabel,
     discount,
     total,
     step,
@@ -90,7 +124,7 @@ function OrderSummary({
 }: {
     items: CartItem[];
     subtotal: number;
-    shippingCost: number;
+    shippingLabel: string;
     discount: number;
     total: number;
     step: CheckoutStep;
@@ -146,8 +180,8 @@ function OrderSummary({
                     <span>{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>{shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}</span>
+                    <span>Local delivery fee</span>
+                    <span>{shippingLabel}</span>
                 </div>
                 <div className="rounded-xl border border-[#dfeee5] bg-white p-3">
                     <p className="mb-2 text-xs font-bold text-[#163b24]">Voucher</p>
@@ -209,16 +243,18 @@ function OrderSummary({
 }
 
 export default function CustomerCheckout() {
-    const { selectedItemIds: initialSelectedItemIds = [] } = usePage<CheckoutProps>().props;
+    const { selectedItemIds: initialSelectedItemIds = [], deliveryZones, deliveryOptions } = usePage<CheckoutProps>().props;
     const { data, isLoading } = useQuery<CartData>({
         queryKey: ['cart'],
         queryFn: async () => (await api.get('/customer/cart')).data,
     });
-    const items = data?.items || [];
+    const items = useMemo(() => data?.items ?? [], [data?.items]);
     const [selectedItemIds, setSelectedItemIds] = useState<number[]>(initialSelectedItemIds);
     const [step, setStep] = useState<CheckoutStep>('cart');
     const [address, setAddress] = useState<AddressForm>(emptyAddress);
-    const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
+    const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>(() => {
+        return (['local_delivery', 'seller_delivery', 'pickup'] as const).find((option) => deliveryOptions[option]) ?? 'local_delivery';
+    });
     const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'cod'>('gcash');
     const [voucherQuote, setVoucherQuote] = useState<CartData['voucher_quote']>(null);
     const [voucherCode, setVoucherCode] = useState('');
@@ -234,13 +270,17 @@ export default function CustomerCheckout() {
 
     const selectedItems = useMemo(() => items.filter((item) => selectedItemIds.includes(item.id)), [items, selectedItemIds]);
     const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.price_snapshot) * item.quantity, 0);
-    const shippingCost = voucherQuote?.free_shipping ? 0 : shippingMethod === 'express' ? 99 : 0;
+    const selectedZone = deliveryZones.find((zone) => zone.barangay.trim().toLowerCase() === address.barangay.trim().toLowerCase());
+    const qualifiesForFreeDelivery = Boolean(
+        selectedZone?.is_free_delivery && (selectedZone.free_delivery_minimum === null || subtotal >= Number(selectedZone.free_delivery_minimum)),
+    );
+    const configuredDeliveryFee = deliveryOption === 'pickup' || qualifiesForFreeDelivery ? 0 : Number(selectedZone?.delivery_fee ?? 0);
+    const shippingCost = voucherQuote?.free_shipping ? 0 : configuredDeliveryFee;
     const discount = Number(voucherQuote?.discount ?? 0);
     const total = Math.max(0, subtotal + shippingCost - discount);
-    const selectedItemsKey = selectedItemIds.join(',');
 
     useEffect(() => {
-        if (!data?.voucher) {
+        if (!data?.voucher?.id) {
             setVoucherQuote(null);
             return;
         }
@@ -251,7 +291,7 @@ export default function CustomerCheckout() {
                 setVoucherQuote(null);
                 setNotice(error?.response?.data?.message || 'The applied voucher is no longer valid for these items.');
             });
-    }, [data?.voucher?.id, selectedItemsKey]);
+    }, [data?.voucher, selectedItemIds]);
 
     useEffect(() => {
         if (!data) return;
@@ -269,7 +309,14 @@ export default function CustomerCheckout() {
             .then((user) => {
                 const saved =
                     ((user.addresses || []) as (AddressForm & { is_default?: boolean })[]).find((item) => item.is_default) || user.addresses?.[0];
-                setAddress({ ...emptyAddress, full_name: saved?.full_name || user.name || '', phone: saved?.phone || user.phone || '', ...saved });
+                setAddress({
+                    ...emptyAddress,
+                    ...saved,
+                    full_name: saved?.full_name || user.name || '',
+                    phone: saved?.phone || user.phone || '',
+                    city: 'Hinoba-an',
+                    province: 'Negros Occidental',
+                });
                 setAddressReady(true);
             })
             .catch(() => setAddressReady(true));
@@ -287,16 +334,21 @@ export default function CustomerCheckout() {
 
         try {
             const order = await checkoutCart({
-                shipping_address: address,
+                shipping_address: {
+                    ...address,
+                    line1: [address.house_number, address.line1].filter(Boolean).join(', '),
+                    city: 'Hinoba-an',
+                    province: 'Negros Occidental',
+                },
                 payment_method: paymentMethod === 'gcash' ? 'gcash' : 'cash_on_delivery',
-                shipping_method: shippingMethod,
+                delivery_option: deliveryOption,
                 selected_item_ids: selectedItemIds,
                 gcash_receipt: paymentMethod === 'gcash' ? gcashReceipt : null,
             });
             setPlacedOrder(order);
             setStep('success');
-        } catch (error: any) {
-            setNotice(error?.response?.data?.message || 'Checkout could not be completed.');
+        } catch (error: unknown) {
+            setNotice(getApiErrorMessage(error, 'Checkout could not be completed.'));
             setBusy(false);
         }
     }
@@ -310,8 +362,8 @@ export default function CustomerCheckout() {
             setVoucherCode('');
             const response = await api.post('/customer/cart/voucher/quote', { selected_item_ids: selectedItemIds });
             setVoucherQuote(response.data.voucher);
-        } catch (error: any) {
-            setNotice(error?.response?.data?.message || 'Unable to apply that voucher.');
+        } catch (error: unknown) {
+            setNotice(getApiErrorMessage(error, 'Unable to apply that voucher.'));
         } finally {
             setVoucherBusy(false);
         }
@@ -341,6 +393,23 @@ export default function CustomerCheckout() {
         }
 
         if (step === 'shipping') {
+            const requiredAddressFields = [address.full_name, address.phone, address.barangay, address.line1];
+            if (requiredAddressFields.some((value) => !value.trim())) {
+                setNotice('Enter your name, active mobile number, supported barangay, and street or sitio to continue.');
+                return;
+            }
+            if (!selectedZone) {
+                setNotice(
+                    deliveryZones.length === 0
+                        ? 'Checkout is unavailable until an active delivery zone and delivery fee are configured.'
+                        : 'This saved barangay does not match an active delivery zone. Please contact support.',
+                );
+                return;
+            }
+            if (!deliveryOptions[deliveryOption]) {
+                setNotice('Please choose an available delivery option.');
+                return;
+            }
             setStep('payment');
             return;
         }
@@ -379,11 +448,11 @@ export default function CustomerCheckout() {
                             </div>
                             <div className="mt-3 flex items-center justify-between text-sm">
                                 <span className="font-semibold text-[#163b24]">Estimated Delivery</span>
-                                <span className="text-[#647568]">May 20 – May 23, 2025</span>
+                                <span className="text-[#647568]">{selectedZone?.estimated_delivery_text || 'To be confirmed'}</span>
                             </div>
                             <div className="mt-3 flex items-center justify-between text-sm">
-                                <span className="font-semibold text-[#163b24]">Shipping</span>
-                                <span className="text-[#647568]">Standard Shipping</span>
+                                <span className="font-semibold text-[#163b24]">Delivery option</span>
+                                <span className="text-[#647568]">{deliveryOption.replaceAll('_', ' ')}</span>
                             </div>
                         </div>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -426,9 +495,9 @@ export default function CustomerCheckout() {
                             return (
                                 <div
                                     key={item.id}
-                                    className="flex items-center gap-3 rounded-3xl border border-[#dfeee5] bg-white p-3 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-4"
+                                    className="flex flex-wrap items-center gap-3 rounded-3xl border border-[#dfeee5] bg-white p-3 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:flex-nowrap sm:p-4"
                                 >
-                                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-[#eefaf1] sm:h-28 sm:w-28">
+                                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#eefaf1] sm:h-28 sm:w-28">
                                         {imgSrc ? (
                                             <img src={imgSrc} alt={item.product?.name || 'Product'} className="h-full w-full object-cover" />
                                         ) : (
@@ -440,7 +509,7 @@ export default function CustomerCheckout() {
                                         <p className="mt-1 text-sm text-[#647568]">White / 9 (US)</p>
                                         <p className="mt-2 text-base font-bold text-[#163b24]">{formatPrice(Number(item.price_snapshot))}</p>
                                     </div>
-                                    <div className="flex shrink-0 items-center gap-2">
+                                    <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-0">
                                         <div className="flex items-center gap-2 rounded-full border border-[#dfeee5] bg-[#f5fcf7] px-2 py-1.5">
                                             <button
                                                 type="button"
@@ -475,22 +544,128 @@ export default function CustomerCheckout() {
         }
 
         if (step === 'shipping') {
+            const inputClass =
+                'mt-1 w-full rounded-xl border border-[#dfeee5] bg-white px-3 py-2.5 text-sm text-[#163b24] outline-none focus:border-[#2c9350]';
             return (
                 <div className="space-y-5">
                     <div className="rounded-[26px] border border-[#dfeee5] bg-white p-4 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-5">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-display text-xl font-bold text-[#163b24]">Delivery Address</h3>
-                            <button type="button" className="rounded-full border border-[#dfeee5] px-3 py-1.5 text-xs font-semibold text-[#1f7a42]">
-                                + Add New Address
-                            </button>
+                        <h3 className="font-display text-xl font-bold text-[#163b24]">Local delivery address</h3>
+                        <p className="mt-1 text-sm text-[#647568]">Deliveries are currently available only in Hinoba-an, Negros Occidental.</p>
+                        <p className="mt-2 rounded-xl bg-[#f7faf7] px-3 py-2 text-xs text-[#647568]">
+                            Your saved address is read-only during checkout. Update delivery details in your profile before placing an order.
+                        </p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <label className="text-sm font-semibold text-[#163b24]">
+                                Full name
+                                <input
+                                    autoComplete="name"
+                                    value={address.full_name}
+                                    readOnly
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                    required
+                                />
+                            </label>
+                            <label className="text-sm font-semibold text-[#163b24]">
+                                Active mobile number
+                                <input
+                                    autoComplete="tel"
+                                    type="tel"
+                                    value={address.phone}
+                                    readOnly
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                    required
+                                />
+                            </label>
+                            <label className="text-sm font-semibold text-[#163b24]">
+                                Barangay / delivery zone
+                                <select
+                                    value={address.barangay}
+                                    disabled
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                    required
+                                >
+                                    <option value="">{address.barangay || 'No saved delivery zone'}</option>
+                                    {deliveryZones.map((zone) => (
+                                        <option key={zone.id} value={zone.barangay}>
+                                            {zone.barangay} — {zone.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="text-sm font-semibold text-[#163b24]">
+                                Street / Sitio
+                                <input
+                                    autoComplete="address-line1"
+                                    value={address.line1}
+                                    readOnly
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                    required
+                                />
+                            </label>
+                            <label className="text-sm font-semibold text-[#163b24]">
+                                Postal code (optional)
+                                <input
+                                    autoComplete="postal-code"
+                                    value={address.postal_code}
+                                    readOnly
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                />
+                            </label>
+                            <label className="text-sm font-semibold text-[#163b24] sm:col-span-2">
+                                Additional delivery instructions (optional)
+                                <textarea
+                                    rows={2}
+                                    value={address.delivery_instructions}
+                                    readOnly
+                                    className={`${inputClass} cursor-not-allowed bg-[#f8fcf8]`}
+                                />
+                            </label>
+                            <div className="rounded-xl bg-[#f7faf7] px-3 py-2 text-sm text-[#526157] sm:col-span-2">Hinoba-an, Negros Occidental</div>
                         </div>
-                        <div className="mt-4 rounded-2xl border border-[#dfeee5] bg-[#f7faf7] p-4">
-                            <p className="text-base font-bold text-[#163b24]">{address.full_name || 'Juan Dela Cruz'}</p>
-                            <p className="mt-1 text-sm text-[#647568]">{address.phone || '+63 912 345 6789'}</p>
-                            <p className="mt-2 text-sm text-[#647568]">{address.line1 || '123 Santos St., San Pedro'}</p>
-                            <p className="text-sm text-[#647568]">
-                                {address.city || 'Laguna'}, {address.postal_code || '4023'}
+                        {!selectedZone && (
+                            <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                                {deliveryZones.length === 0
+                                    ? 'Checkout is unavailable until an active delivery zone and delivery fee are configured.'
+                                    : 'This saved barangay does not match an active delivery zone. Please contact support.'}
                             </p>
+                        )}
+                        {selectedZone && (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dcebe0] bg-[#f7fbf7] p-3 text-sm">
+                                <span className="font-semibold text-[#173b27]">
+                                    {selectedZone.name} · {selectedZone.estimated_delivery_text}
+                                </span>
+                                <span className="font-bold text-[#1f7a42]">{shippingCost === 0 ? 'FREE DELIVERY' : formatPrice(shippingCost)}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="rounded-[26px] border border-[#dfeee5] bg-white p-4 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-5">
+                        <h3 className="font-display text-xl font-bold text-[#163b24]">Delivery option</h3>
+                        <div className="mt-4 grid gap-3">
+                            {(
+                                [
+                                    ['local_delivery', 'Local Delivery', 'Seller or BSAB-Shop delivery personnel brings your order.'],
+                                    ['seller_delivery', 'Seller Delivery', 'The seller personally handles delivery.'],
+                                    ['pickup', 'Pickup', 'Collect from the seller when pickup is available.'],
+                                ] as [DeliveryOption, string, string][]
+                            )
+                                .filter(([key]) => deliveryOptions[key])
+                                .map(([key, title, description]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setDeliveryOption(key)}
+                                        className={`rounded-xl border p-4 text-left ${deliveryOption === key ? 'border-[#1f7a42] bg-[#ebf9ee]' : 'border-[#dfeee5] bg-[#f7faf7]'}`}
+                                    >
+                                        <span className="block font-bold text-[#163b24]">{title}</span>
+                                        <span className="mt-1 block text-sm text-[#647568]">{description}</span>
+                                    </button>
+                                ))}
+                            {Object.values(deliveryOptions).every((enabled) => !enabled) && (
+                                <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                                    Delivery options are temporarily unavailable. Please contact support.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -630,7 +805,7 @@ export default function CustomerCheckout() {
                                         <ShieldCheck size={16} className="text-[#2c7a3b]" /> Safe & secure
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <ShieldCheck size={16} className="text-[#2c7a3b]" /> Available nationwide
+                                        <ShieldCheck size={16} className="text-[#2c7a3b]" /> Local delivery within Hinoba-an
                                     </div>
                                 </div>
                             </div>
@@ -652,25 +827,27 @@ export default function CustomerCheckout() {
                         </div>
                         <div className="mt-3 rounded-2xl border border-[#dfeee5] bg-[#f7faf7] p-4 text-sm text-[#647568]">
                             <p className="font-bold text-[#163b24]">{address.full_name || 'Juan Dela Cruz'}</p>
-                            <p className="mt-1">{address.phone || '+63 912 345 6789'}</p>
-                            <p className="mt-2">{address.line1 || '123 Santos St., San Pedro'}</p>
-                            <p>
-                                {address.city || 'Laguna'}, {address.postal_code || '4023'}
+                            <p className="mt-1">{address.phone}</p>
+                            <p className="mt-2">
+                                {address.house_number} {address.line1}, {address.barangay}
                             </p>
+                            <p>Hinoba-an, Negros Occidental {address.postal_code}</p>
+                            {address.delivery_instructions && <p className="mt-2">Instructions: {address.delivery_instructions}</p>}
                         </div>
                     </div>
 
                     <div className="rounded-[26px] border border-[#dfeee5] bg-white p-4 shadow-[0_10px_30px_rgba(22,59,36,0.04)] sm:p-5">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-display text-xl font-bold text-[#163b24]">Shipping Method</h3>
+                            <h3 className="font-display text-xl font-bold text-[#163b24]">Delivery details</h3>
                             <button type="button" onClick={() => setStep('shipping')} className="text-sm font-semibold text-[#1f7a42]">
                                 Edit
                             </button>
                         </div>
                         <div className="mt-3 rounded-2xl border border-[#dfeee5] bg-[#f7faf7] p-4 text-sm text-[#647568]">
-                            <p className="font-bold text-[#163b24]">{shippingMethod === 'express' ? 'Express Shipping' : 'Standard Shipping'}</p>
-                            <p className="mt-1">{shippingMethod === 'express' ? '1–2 business days' : '3–5 business days'}</p>
-                            <p className="mt-1 text-[#2c7a3b]">{shippingMethod === 'express' ? '₱99' : 'FREE'}</p>
+                            <p className="font-bold text-[#163b24]">{selectedZone?.name ?? 'Select a delivery zone'}</p>
+                            <p className="mt-1">{selectedZone?.estimated_delivery_text}</p>
+                            <p className="mt-1 capitalize">{deliveryOption.replaceAll('_', ' ')}</p>
+                            <p className="mt-1 font-semibold text-[#2c7a3b]">{shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}</p>
                         </div>
                     </div>
 
@@ -697,7 +874,7 @@ export default function CustomerCheckout() {
         return (
             <>
                 <Head title="Checkout" />
-                <PortalLayout role="customer" title="Checkout" eyebrow="Loading order...">
+                <PortalLayout role="customer" title="Checkout" eyebrow="Loading order..." hideHeaderOnMobile>
                     <div className="rounded-3xl border border-[#def0e2] bg-white p-8 text-center text-[#647568]">Loading checkout...</div>
                 </PortalLayout>
             </>
@@ -708,7 +885,7 @@ export default function CustomerCheckout() {
         return (
             <>
                 <Head title="Checkout" />
-                <PortalLayout role="customer" title="Checkout" eyebrow="Your cart">
+                <PortalLayout role="customer" title="Checkout" eyebrow="Your cart" hideHeaderOnMobile>
                     <div className="rounded-[30px] border border-[#dfeee5] bg-white p-10 text-center shadow-[0_16px_42px_rgba(22,59,36,0.06)]">
                         <ShoppingBag className="mx-auto text-[#2c9350]" size={42} />
                         <h2 className="font-display mt-4 text-2xl font-bold text-[#163b24]">Your cart is empty</h2>
@@ -728,7 +905,7 @@ export default function CustomerCheckout() {
         return (
             <>
                 <Head title="Checkout" />
-                <PortalLayout role="customer" title="Checkout" eyebrow="Select items">
+                <PortalLayout role="customer" title="Checkout" eyebrow="Select items" hideHeaderOnMobile>
                     <div className="rounded-[30px] border border-[#dfeee5] bg-white p-10 text-center shadow-[0_16px_42px_rgba(22,59,36,0.06)]">
                         <ShoppingBag className="mx-auto text-[#2c9350]" size={42} />
                         <h2 className="font-display mt-4 text-2xl font-bold text-[#163b24]">Select products from your cart</h2>
@@ -747,9 +924,9 @@ export default function CustomerCheckout() {
     return (
         <>
             <Head title="Checkout" />
-            <PortalLayout role="customer" title="Checkout" eyebrow="Complete your order" hideHeader>
-                <div className="mx-auto max-w-300 px-3 pt-1 pb-6 sm:px-5 lg:px-6 lg:pb-10">
-                    <div className="rounded-[30px] border border-[#dfeee5] bg-[#f3faf5] p-3 shadow-[0_15px_42px_rgba(22,59,36,0.04)] sm:p-4 lg:p-5">
+            <PortalLayout role="customer" title="Checkout" eyebrow="Complete your order" hideHeaderOnMobile>
+                <div className="mx-auto w-full min-w-0 max-w-300 px-3 pt-1 pb-6 sm:px-5 lg:px-6 lg:pb-10">
+                    <div className="min-w-0 rounded-[30px] border border-[#dfeee5] bg-[#f3faf5] p-3 shadow-[0_15px_42px_rgba(22,59,36,0.04)] sm:p-4 lg:p-5">
                         <div className="flex items-center gap-3 px-1 pb-2">
                             <Link
                                 href={route('customer.cart')}
@@ -767,14 +944,14 @@ export default function CustomerCheckout() {
 
                         {notice && <div className="mt-4 rounded-2xl bg-[#fbeaea] px-4 py-3 text-sm font-semibold text-[#b3413a]">{notice}</div>}
 
-                        <div className="mt-5 grid gap-6 lg:grid-cols-[1.55fr_0.95fr]">
-                            <div className="rounded-[28px] border border-[#dfeee5] bg-[#f9fefb] p-3 sm:p-4 lg:p-5">{renderCurrentStep()}</div>
+                        <div className="mt-5 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.95fr)]">
+                            <div className="min-w-0 rounded-[28px] border border-[#dfeee5] bg-[#f9fefb] p-3 sm:p-4 lg:p-5">{renderCurrentStep()}</div>
 
-                            <div className="block">
+                            <div className="block min-w-0">
                                 <OrderSummary
                                     items={selectedItems}
                                     subtotal={subtotal}
-                                    shippingCost={shippingCost}
+                                    shippingLabel={!selectedZone ? 'Select delivery area' : shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                                     discount={discount}
                                     total={total}
                                     step={step}
